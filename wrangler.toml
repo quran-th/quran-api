@@ -1,0 +1,17 @@
+name = "quran-api"
+main = "src/index.ts"
+compatibility_date = "2024-02-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "quran-db"
+database_id = "ignored-locally"
+migrations_dir = "database/migrations"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "ignored-locally"
+
+[vars]
+ENVIRONMENT = "development"
+JWT_SECRET = "dev-secret-change-in-production"
