@@ -94,6 +94,37 @@ export const SourceUpdateBodySchema = z
   })
   .openapi("SourceUpdateBody");
 
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export const UserCreateBodySchema = z
+  .object({
+    email: z.string().email().openapi({ example: "user@example.com" }),
+    displayName: z.string().min(1).openapi({ example: "New User" }),
+    password: z.string().min(6).openapi({ example: "password123" }),
+    role: z.enum(["contributor", "admin"]).default("contributor").openapi({ example: "contributor" }),
+  })
+  .openapi("UserCreateBody");
+
+export const UserUpdateBodySchema = z
+  .object({
+    displayName: z.string().min(1).optional(),
+    role: z.enum(["contributor", "admin"]).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .openapi("UserUpdateBody");
+
+export const ContributorListItemSchema = z
+  .object({
+    id: z.number().openapi({ example: 1 }),
+    email: z.string().email().openapi({ example: "admin@example.com" }),
+    displayName: z.string().nullable().openapi({ example: "Admin User" }),
+    role: z.enum(["contributor", "admin"]).openapi({ example: "admin" }),
+    isActive: z.boolean().openapi({ example: true }),
+    createdAt: z.union([z.string(), z.number()]).nullable(),
+    lastLoginAt: z.union([z.string(), z.number()]).nullable(),
+  })
+  .openapi("ContributorListItem");
+
 // ─── Verses ───────────────────────────────────────────────────────────────────
 
 export const VerseRowSchema = z

@@ -2,7 +2,7 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, and, desc } from "drizzle-orm";
 import { contributions, wordTranslations } from "../db/schema";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireActiveOnWrite } from "../middleware/auth";
 import type { JwtPayload } from "../utils/jwt";
 import {
   ErrorSchema,
@@ -31,6 +31,7 @@ type Variables = {
 const contributor = new OpenAPIHono<{ Bindings: Bindings; Variables: Variables }>();
 
 contributor.use("/*", requireAuth);
+contributor.use("/*", requireActiveOnWrite);
 
 // ─── GET /contributor/verses ──────────────────────────────────────────────────
 

@@ -54,3 +54,23 @@ export async function requireAdmin(
   c.set("contributor", payload);
   return next();
 }
+
+export async function requireActiveOnWrite(
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  next: Next
+) {
+  if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+    return next();
+  }
+
+  const payload = c.get("contributor");
+  const row = await c.env.DB.prepare(
+    "SELECT is_active FROM contributors WHERE id = ? LIMIT 1"
+  ).bind(payload.sub).first<{ is_active: number }>();
+
+  if (row?.is_active !== 1) {
+    return c.json({ success: false, message: "Account deactivated" }, 403);
+  }
+
+  return next();
+}

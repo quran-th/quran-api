@@ -8,9 +8,12 @@ import {
   changelog,
   quranTranslations,
   translationSources,
+  contributors,
 } from "../db/schema";
-import { requireAdmin } from "../middleware/auth";
+import { requireAdmin, requireActiveOnWrite } from "../middleware/auth";
+import { requireAbility } from "../middleware/ability";
 import type { JwtPayload } from "../utils/jwt";
+import { hashPassword } from "../utils/crypto";
 import {
   ErrorSchema,
   MessageSchema,
@@ -18,6 +21,9 @@ import {
   TranslationSourceSchema,
   SourceCreateBodySchema,
   SourceUpdateBodySchema,
+  UserCreateBodySchema,
+  UserUpdateBodySchema,
+  ContributorListItemSchema,
 } from "../openapi/schemas";
 
 type Bindings = {
@@ -33,6 +39,7 @@ type Variables = {
 const admin = new OpenAPIHono<{ Bindings: Bindings; Variables: Variables }>();
 
 admin.use("/*", requireAdmin);
+admin.use("/*", requireActiveOnWrite);
 
 // ─── GET /admin/queue ─────────────────────────────────────────────────────────
 
@@ -665,6 +672,315 @@ admin.openapi(
 
     await db.delete(translationSources).where(eq(translationSources.id, numericId));
     return c.json({ success: true as const, message: "Source deleted" }, 200);
+  }
+);
+
+// ─── GET /admin/users ────────────────────────────────────────────────────────
+
+admin.openapi(
+  createRoute({
+    method: "get",
+    path: "/users",
+    tags: ["Admin"],
+    summary: "List all contributors",
+    security: [{ bearerAuth: [] }],
+    middleware: [requireAbility("read", "users")],
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(true),
+              data: z.array(ContributorListItemSchema),
+            }),
+          },
+        },
+        description: "List of contributors",
+      },
+      401: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Unauthorized",
+      },
+      403: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Forbidden",
+      },
+    },
+  }),
+  async (c) => {
+    const result = await c.env.DB.prepare(
+      `SELECT id, email, display_name, role, is_active, created_at, last_login_at
+       FROM contributors
+       ORDER BY id ASC`
+    ).all();
+
+    const data = (result.results as any[]).map((row) => ({
+      id: row.id,
+      email: row.email,
+      displayName: row.display_name,
+      role: row.role,
+      isActive: Boolean(row.is_active),
+      createdAt: row.created_at,
+      lastLoginAt: row.last_login_at,
+    }));
+
+    return c.json({ success: true as const, data }, 200);
+  }
+);
+
+// ─── POST /admin/users ───────────────────────────────────────────────────────
+
+admin.openapi(
+  createRoute({
+    method: "post",
+    path: "/users",
+    tags: ["Admin"],
+    summary: "Create a new contributor",
+    security: [{ bearerAuth: [] }],
+    middleware: [requireAbility("create", "users")],
+    request: {
+      body: {
+        content: { "application/json": { schema: UserCreateBodySchema } },
+        required: true,
+      },
+    },
+    responses: {
+      201: {
+        content: {
+          "application/json": {
+            schema: z.object({ success: z.literal(true), data: ContributorListItemSchema }),
+          },
+        },
+        description: "Contributor created",
+      },
+      400: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Validation error or email already exists",
+      },
+      401: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Unauthorized",
+      },
+      403: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Forbidden",
+      },
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid("json");
+    const db = drizzle(c.env.DB);
+
+    const [existing] = await db
+      .select({ id: contributors.id })
+      .from(contributors)
+      .where(eq(contributors.email, body.email.trim().toLowerCase()))
+      .limit(1);
+
+    if (existing) {
+      return c.json({ success: false as const, message: "Email already exists" }, 400);
+    }
+
+    const passwordHash = await hashPassword(body.password);
+
+    const [created] = await db
+      .insert(contributors)
+      .values({
+        email: body.email.trim().toLowerCase(),
+        displayName: body.displayName.trim(),
+        role: body.role,
+        passwordHash,
+        isActive: true,
+      })
+      .returning();
+
+    return c.json(
+      {
+        success: true as const,
+        data: {
+          id: created.id,
+          email: created.email,
+          displayName: created.displayName,
+          role: created.role as "contributor" | "admin",
+          isActive: Boolean(created.isActive),
+          createdAt: created.createdAt,
+          lastLoginAt: created.lastLoginAt,
+        },
+      },
+      201
+    );
+  }
+);
+
+// ─── PUT /admin/users/:id ────────────────────────────────────────────────────
+
+admin.openapi(
+  createRoute({
+    method: "put",
+    path: "/users/{id}",
+    tags: ["Admin"],
+    summary: "Update a contributor (role, displayName, isActive)",
+    security: [{ bearerAuth: [] }],
+    middleware: [requireAbility("update", "users")],
+    request: {
+      params: IdParamSchema,
+      body: {
+        content: { "application/json": { schema: UserUpdateBodySchema } },
+        required: true,
+      },
+    },
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            schema: z.object({ success: z.literal(true), data: ContributorListItemSchema }),
+          },
+        },
+        description: "Contributor updated",
+      },
+      400: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Cannot deactivate yourself",
+      },
+      401: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Unauthorized",
+      },
+      403: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Forbidden",
+      },
+      404: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Contributor not found",
+      },
+    },
+  }),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const numericId = parseInt(id);
+    const body = c.req.valid("json");
+    const db = drizzle(c.env.DB);
+    const currentUser = c.get("contributor");
+
+    if (currentUser.sub === numericId && body.isActive === false) {
+      return c.json({ success: false as const, message: "Cannot deactivate yourself" }, 400);
+    }
+
+    if (currentUser.sub === numericId && body.role && body.role !== currentUser.role) {
+      return c.json({ success: false as const, message: "Cannot change your own role" }, 400);
+    }
+
+    const [existing] = await db
+      .select()
+      .from(contributors)
+      .where(eq(contributors.id, numericId))
+      .limit(1);
+
+    if (!existing) {
+      return c.json({ success: false as const, message: "Contributor not found" }, 404);
+    }
+
+    const [updated] = await db
+      .update(contributors)
+      .set({
+        ...(body.displayName !== undefined && { displayName: body.displayName.trim() }),
+        ...(body.role !== undefined && { role: body.role }),
+        ...(body.isActive !== undefined && { isActive: body.isActive }),
+      })
+      .where(eq(contributors.id, numericId))
+      .returning();
+
+    return c.json(
+      {
+        success: true as const,
+        data: {
+          id: updated.id,
+          email: updated.email,
+          displayName: updated.displayName,
+          role: updated.role as "contributor" | "admin",
+          isActive: Boolean(updated.isActive),
+          createdAt: updated.createdAt,
+          lastLoginAt: updated.lastLoginAt,
+        },
+      },
+      200
+    );
+  }
+);
+
+// ─── DELETE /admin/users/:id ─────────────────────────────────────────────────
+
+admin.openapi(
+  createRoute({
+    method: "delete",
+    path: "/users/{id}",
+    tags: ["Admin"],
+    summary: "Delete a contributor",
+    security: [{ bearerAuth: [] }],
+    middleware: [requireAbility("delete", "users")],
+    request: { params: IdParamSchema },
+    responses: {
+      200: {
+        content: { "application/json": { schema: MessageSchema } },
+        description: "Contributor deleted",
+      },
+      400: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Cannot delete yourself or contributor has references",
+      },
+      401: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Unauthorized",
+      },
+      403: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Forbidden",
+      },
+      404: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Contributor not found",
+      },
+    },
+  }),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const numericId = parseInt(id);
+    const db = drizzle(c.env.DB);
+    const currentUser = c.get("contributor");
+
+    if (currentUser.sub === numericId) {
+      return c.json({ success: false as const, message: "Cannot delete yourself" }, 400);
+    }
+
+    const [existing] = await db
+      .select()
+      .from(contributors)
+      .where(eq(contributors.id, numericId))
+      .limit(1);
+
+    if (!existing) {
+      return c.json({ success: false as const, message: "Contributor not found" }, 404);
+    }
+
+    const contribCount = await c.env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM contributions WHERE contributor_id = ?"
+    )
+      .bind(numericId)
+      .first<{ n: number }>();
+
+    if (contribCount && contribCount.n > 0) {
+      return c.json(
+        {
+          success: false as const,
+          message: `Cannot delete: contributor has ${contribCount.n} contribution(s)`,
+        },
+        400
+      );
+    }
+
+    await db.delete(contributors).where(eq(contributors.id, numericId));
+    return c.json({ success: true as const, message: "Contributor deleted" }, 200);
   }
 );
 
