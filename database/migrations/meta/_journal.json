@@ -8,6 +8,13 @@
       "when": 1771177395696,
       "tag": "0000_glossy_joystick",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1772320627357,
+      "tag": "0001_worthless_kronos",
+      "breakpoints": true
     }
   ]
 }

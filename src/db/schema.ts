@@ -81,7 +81,6 @@ export const quranTranslations = sqliteTable(
     surahNumber: integer("surah_number").notNull(),
     verseNumber: integer("verse_number").notNull(),
     content: text("content").notNull(),
-    translation: text("translation").notNull(),
     isVerified: integer("is_verified", { mode: "boolean" }).default(false),
     lastUpdated: integer("last_updated", { mode: "timestamp" }).default(
       sql`(strftime('%s', 'now'))`
@@ -89,8 +88,8 @@ export const quranTranslations = sqliteTable(
   },
   (table) => {
     return {
+      uniqueIdx: uniqueIndex("idx_qt_unique").on(table.surahNumber, table.verseNumber),
       surahIdx: index("surah_idx").on(table.surahNumber),
-      verseIdx: index("verse_idx").on(table.verseNumber),
     };
   }
 );

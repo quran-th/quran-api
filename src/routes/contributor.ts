@@ -99,7 +99,7 @@ contributor.openapi(
         COUNT(DISTINCT c.id) FILTER (WHERE c.status = 'pending') AS pending_count,
         COUNT(DISTINCT ir.id) AS issue_count
       FROM verse_translations vt
-      JOIN quran_translations qt ON qt.surah_number = vt.surah_number AND qt.verse_number = vt.verse_number
+      LEFT JOIN quran_translations qt ON qt.surah_number = vt.surah_number AND qt.verse_number = vt.verse_number
       LEFT JOIN contributions c ON c.verse_translation_id = vt.id
       LEFT JOIN issue_reports ir ON ir.translation_id = qt.id
       WHERE vt.source_id = ${resolvedSourceId}
@@ -109,7 +109,7 @@ contributor.openapi(
       query += ` AND vt.surah_number = ${surahNumber}`;
     }
     if (hasIssues === "true") {
-      query += ` AND (SELECT COUNT(*) FROM issue_reports WHERE translation_id = qt.id) > 0`;
+      query += ` AND qt.id IS NOT NULL AND (SELECT COUNT(*) FROM issue_reports WHERE translation_id = qt.id) > 0`;
     }
 
     query += ` GROUP BY vt.id ORDER BY vt.surah_number, vt.verse_number LIMIT 200`;
@@ -613,7 +613,6 @@ contributor.openapi(
         qt.surah_number,
         qt.verse_number,
         qt.content,
-        qt.translation,
         COUNT(ir.id) AS issue_count
       FROM quran_translations qt
       JOIN issue_reports ir ON ir.translation_id = qt.id
