@@ -12,6 +12,10 @@ migrations_dir = "database/migrations"
 binding = "CACHE"
 id = "ignored-locally"
 
+[[r2_buckets]]
+binding = "ASSETS_BUCKET"
+bucket_name = "quran-assets"
+
 [vars]
 ENVIRONMENT = "development"
 JWT_SECRET = "dev-secret-change-in-production"

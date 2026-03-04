@@ -19,9 +19,17 @@ import {
   SurahVerseQuerySchema,
 } from "./openapi/schemas";
 
+type MushafPageEntry = {
+  page: number;
+  verseFrom: number;
+  verseTo: number;
+  verseCount: number;
+};
+
 type Bindings = {
   DB: D1Database;
   CACHE: KVNamespace;
+  ASSETS_BUCKET: R2Bucket;
   JWT_SECRET: string;
   ASSETS_BASE_URL: string;
 };
@@ -301,13 +309,13 @@ app.get("/verse-words/:surahId", async (c) => {
   }
 
   try {
-    const response = await fetch(`${c.env.ASSETS_BASE_URL}/quran-words/${numericId}.json`);
+    const obj = await c.env.ASSETS_BUCKET.get(`quran-words/${numericId}.json`);
 
-    if (!response.ok) {
+    if (!obj) {
       return c.json({ success: false, message: "Words not found" }, 404);
     }
 
-    const data = await response.json();
+    const data = await obj.json();
     return c.json({ success: true, data });
   } catch (e) {
     console.error("Error fetching verse words:", e);
@@ -329,17 +337,14 @@ app.get("/surahs/:id/mushaf-pages", async (c) => {
   }
 
   try {
-    // Read the surah-page-mapping.json file from assets
-    // In production, this will be served from the CDN
-    const mappingUrl = `${c.env.ASSETS_BASE_URL}/quran-pages/surah-page-mapping.json`;
-    const response = await fetch(mappingUrl);
+    const obj = await c.env.ASSETS_BUCKET.get("quran-pages/surah-page-mapping.json");
 
-    if (!response.ok) {
+    if (!obj) {
       return c.json({ success: false, message: "Failed to fetch page mapping" }, 500);
     }
 
-    const mapping = await response.json();
-    const pages = mapping[numericId];
+    const mapping = await obj.json<Record<string, MushafPageEntry[]>>();
+    const pages = mapping[String(numericId)];
 
     if (!pages) {
       return c.json({ success: false, message: "Surah page mapping not found" }, 404);
