@@ -2,26 +2,45 @@ name: Deploy to Cloudflare Workers
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
   workflow_dispatch:
+
+env:
+  NODE_VERSION: "${{ vars.NODE_VERSION || '20' }}"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint check
+        run: npm run lint:check
+
+      - name: Generate database migrations
+        run: npm run db:generate
+        continue-on-error: true
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy

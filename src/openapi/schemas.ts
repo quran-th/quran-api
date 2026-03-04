@@ -266,4 +266,38 @@ export const SurahVerseQuerySchema = z.object({
       param: { name: "sourceId", in: "query" },
       example: 1,
     }),
+  offset: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .default(0)
+    .openapi({
+      param: { name: "offset", in: "query" },
+      example: 0,
+    }),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(30)
+    .openapi({
+      param: { name: "limit", in: "query" },
+      example: 30,
+    }),
 });
+
+export const PaginationSchema = z
+  .object({
+    offset: z.number(),
+    limit: z.number(),
+    total: z.number(),
+    hasMore: z.boolean(),
+  })
+  .openapi("Pagination");
+
+export const SurahWithPaginatedVersesSchema = SurahSchema.extend({
+  sourceId: z.number(),
+  verses: z.array(SurahVerseSchema),
+  pagination: PaginationSchema,
+}).openapi("SurahWithPaginatedVerses");
