@@ -15,3 +15,4 @@ id = "ignored-locally"
 [vars]
 ENVIRONMENT = "development"
 JWT_SECRET = "dev-secret-change-in-production"
+ASSETS_BASE_URL = "https://assets.quran.in.th"
