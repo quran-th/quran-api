@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/quran-th/quran-api/compare/v1.1.0...v1.1.1) (2026-03-04)
+
+
+### Bug Fixes
+
+* fix type error and access bucket through binding instead of slower http ([61e285a](https://github.com/quran-th/quran-api/commit/61e285a311fd59ffe5f1b1b417b39e6a81027778))
+
 # [1.1.0](https://github.com/quran-th/quran-api/compare/v1.0.0...v1.1.0) (2026-03-04)
 
 
