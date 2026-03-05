@@ -10,7 +10,9 @@ migrations_dir = "database/migrations"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "ignored-locally"
+id = "bd982fc45d924e81b222f897a273cd8e"
+preview_id = "95899259b28b43cdac7ad45a693e964a"
+
 
 [[r2_buckets]]
 binding = "ASSETS_BUCKET"
