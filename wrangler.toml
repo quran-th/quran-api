@@ -2,10 +2,15 @@ name = "quran-api"
 main = "src/index.ts"
 compatibility_date = "2024-02-01"
 
+routes = [
+  { pattern = "api.quran.in.th", custom_domain = true }
+]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "quran-db"
-database_id = "ignored-locally"
+database_id = "00b3b433-ca76-489f-9482-a592030b86c0"
+preview_database_id = "c508ccdc-9936-4754-916a-cd84959cafe1"
 migrations_dir = "database/migrations"
 
 [[kv_namespaces]]
