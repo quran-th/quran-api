@@ -198,7 +198,9 @@ export const WordTranslationSchema = z
     verse_number: z.number(),
     word_position: z.number(),
     arabic_text: z.string(),
-    thai_meaning: z.string(),
+    meaning: z.string(),
+    language: z.string(),
+    transliteration: z.string(),
     contributor_id: z.number().nullable(),
     status: z.string(),
     created_at: z.union([z.string(), z.number()]).nullable(),
@@ -212,7 +214,9 @@ export const WordTranslationBodySchema = z
     verseNumber: z.number().int().positive().openapi({ example: 1 }),
     wordPosition: z.number().int().positive().openapi({ example: 1 }),
     arabicText: z.string().min(1).openapi({ example: "بِسْمِ" }),
-    thaiMeaning: z.string().min(1).openapi({ example: "ในนาม" }),
+    meaning: z.string().min(1).openapi({ example: "In (the) name" }),
+    language: z.string().min(1).openapi({ example: "th" }),
+    transliteration: z.string().optional().openapi({ example: "bis'mi" }),
   })
   .openapi("WordTranslationBody");
 

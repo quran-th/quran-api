@@ -24,15 +24,33 @@ REST API for the Open Thai Quran Project — community-driven Quran translation 
 - `word_translations` - Per-word Thai meanings
 - `changelog` - History of approved changes
 
+## Quick Start for Contributors
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Apply migrations to local D1 database
+npm run db:migrate:local
+
+# 3. Seed with sample data (optional but recommended)
+npm run db:seed
+
+# 4. Start development server
+npm run dev
+# API: http://localhost:8787
+# Swagger UI: http://localhost:8787/ui
+```
+
+**Test credentials** (after seeding):
+- Email: `admin@local.dev`
+- Password: `password123`
+
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
 # Run local development server (with local D1)
 npm run dev
-# Runs on http://localhost:8787
 
 # Generate database migrations from schema changes
 npm run db:generate
@@ -40,9 +58,15 @@ npm run db:generate
 # Apply migrations to local D1
 npx wrangler d1 migrations apply DB --local
 
-# Apply migrations to production D1
-npx wrangler d1 migrations apply DB --remote
+# Reset local database (clear, migrate, seed)
+npm run db:reset
+
+# Run quality checks
+npm run lint
+npm run typecheck
 ```
+
+📖 **Full contributor guide**: See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed documentation on local development, testing, and contribution workflow.
 
 ## Deployment
 

@@ -12,11 +12,19 @@
     "deploy": "wrangler deploy",
     "db:generate": "drizzle-kit generate:sqlite",
     "db:migrate": "wrangler d1 migrations apply DB",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:seed": "cd .. && python3 scripts/seed_initial.py",
+    "db:seed:quick": "cd .. && python3 scripts/seed_initial.py --max-ayah 50",
+    "db:seed:preview": "cd .. && python3 scripts/seed_initial.py --preview",
+    "db:seed:remote": "cd .. && python3 scripts/seed_initial.py --remote",
+    "db:seed:dry-run": "cd .. && python3 scripts/seed_initial.py --dry-run",
+    "db:reset": "rm -rf .wrangler/state/v3/d1/ && npm run db:migrate:local && npm run db:seed",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "bash scripts/verify-setup.sh"
   },
   "dependencies": {
     "@casl/ability": "^6.8.0",

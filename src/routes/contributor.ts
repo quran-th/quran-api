@@ -309,6 +309,13 @@ contributor.openapi(
             param: { name: "verseNumber", in: "query" },
             example: 1,
           }),
+        language: z
+          .string()
+          .optional()
+          .openapi({
+            param: { name: "language", in: "query" },
+            example: "en",
+          }),
       }),
     },
     responses: {
@@ -334,18 +341,21 @@ contributor.openapi(
     },
   }),
   async (c) => {
-    const { surahNumber, verseNumber } = c.req.valid("query");
+    const { surahNumber, verseNumber, language } = c.req.valid("query");
     const db = drizzle(c.env.DB);
+
+    const conditions = [
+      eq(wordTranslations.surahNumber, surahNumber),
+      eq(wordTranslations.verseNumber, verseNumber),
+    ];
+    if (language) {
+      conditions.push(eq(wordTranslations.language, language));
+    }
 
     const words = await db
       .select()
       .from(wordTranslations)
-      .where(
-        and(
-          eq(wordTranslations.surahNumber, surahNumber),
-          eq(wordTranslations.verseNumber, verseNumber),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(wordTranslations.wordPosition)
       .all();
 
@@ -399,8 +409,15 @@ contributor.openapi(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const { surahNumber, verseNumber, wordPosition, arabicText, thaiMeaning } =
-      body;
+    const {
+      surahNumber,
+      verseNumber,
+      wordPosition,
+      arabicText,
+      meaning,
+      language,
+      transliteration,
+    } = body;
     const payload = c.get("contributor");
     const db = drizzle(c.env.DB);
 
@@ -412,6 +429,7 @@ contributor.openapi(
           eq(wordTranslations.surahNumber, surahNumber),
           eq(wordTranslations.verseNumber, verseNumber),
           eq(wordTranslations.wordPosition, wordPosition),
+          eq(wordTranslations.language, language),
           eq(wordTranslations.contributorId, payload.sub),
         ),
       )
@@ -420,7 +438,11 @@ contributor.openapi(
     if (existing.length > 0) {
       const [updated] = await db
         .update(wordTranslations)
-        .set({ thaiMeaning: thaiMeaning.trim(), updatedAt: new Date() })
+        .set({
+          meaning: meaning.trim(),
+          transliteration: transliteration?.trim() ?? "",
+          updatedAt: new Date(),
+        })
         .where(eq(wordTranslations.id, existing[0].id))
         .returning();
       return c.json({ success: true as const, data: updated as any }, 200);
@@ -433,7 +455,9 @@ contributor.openapi(
         verseNumber,
         wordPosition,
         arabicText,
-        thaiMeaning: thaiMeaning.trim(),
+        meaning: meaning.trim(),
+        language,
+        transliteration: transliteration?.trim() ?? "",
         contributorId: payload.sub,
       })
       .returning();

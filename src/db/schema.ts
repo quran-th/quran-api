@@ -166,7 +166,9 @@ export const wordTranslations = sqliteTable(
     verseNumber: integer("verse_number").notNull(),
     wordPosition: integer("word_position").notNull(),
     arabicText: text("arabic_text").notNull(),
-    thaiMeaning: text("thai_meaning").notNull(),
+    meaning: text("meaning").notNull(),
+    language: text("language").notNull(),
+    transliteration: text("transliteration").notNull().default(""),
     contributorId: integer("contributor_id").references(() => contributors.id),
     status: text("status", {
       enum: ["pending", "approved", "rejected"],
@@ -188,6 +190,7 @@ export const wordTranslations = sqliteTable(
         table.surahNumber,
         table.verseNumber,
         table.wordPosition,
+        table.language,
         table.contributorId,
       ),
     };
