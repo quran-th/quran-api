@@ -1,3 +1,16 @@
+# [1.3.0](https://github.com/quran-th/quran-api/compare/v1.2.0...v1.3.0) (2026-03-09)
+
+
+### Bug Fixes
+
+* utilize d1 id and use route ([6e2a5d0](https://github.com/quran-th/quran-api/commit/6e2a5d052a49a03a032d1c507aaee333c20fa2df))
+
+
+### Features
+
+* add get verses by key endpoint ([f54f9fe](https://github.com/quran-th/quran-api/commit/f54f9feaa8de2d80e7b745e302e1d0889cc0fbfa))
+* add multi-language support for word by word translations ([a49f877](https://github.com/quran-th/quran-api/commit/a49f877dcc54894cef0064b78ac41b8215e9dedf))
+
 # [1.2.0](https://github.com/quran-th/quran-api/compare/v1.1.1...v1.2.0) (2026-03-05)
 
 
