@@ -4,6 +4,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { contributions, wordTranslations } from "../db/schema";
 import { requireAuth, requireActiveOnWrite } from "../middleware/auth";
 import type { JwtPayload } from "../utils/jwt";
+import type { VerseDetailSchema } from "../openapi/schemas";
 import {
   ErrorSchema,
   VerseRowSchema,
@@ -123,7 +124,10 @@ contributor.openapi(
 
     const result = await c.env.DB.prepare(query).all();
     return c.json(
-      { success: true as const, data: result.results as any[] },
+      {
+        success: true as const,
+        data: result.results as z.infer<typeof VerseRowSchema>[],
+      },
       200,
     );
   },
@@ -198,7 +202,10 @@ contributor.openapi(
     return c.json(
       {
         success: true as const,
-        data: { verse: vtRow as any, contributions: history },
+        data: {
+          verse: vtRow as z.infer<typeof VerseDetailSchema>,
+          contributions: history,
+        },
       },
       200,
     );
@@ -277,7 +284,10 @@ contributor.openapi(
       })
       .returning();
 
-    return c.json({ success: true as const, data: inserted as any }, 201);
+    return c.json(
+      { success: true as const, data: inserted as Record<string, unknown> },
+      201,
+    );
   },
 );
 
@@ -359,7 +369,13 @@ contributor.openapi(
       .orderBy(wordTranslations.wordPosition)
       .all();
 
-    return c.json({ success: true as const, data: words as any[] }, 200);
+    return c.json(
+      {
+        success: true as const,
+        data: words as unknown as z.infer<typeof WordTranslationSchema>[],
+      },
+      200,
+    );
   },
 );
 
@@ -445,7 +461,10 @@ contributor.openapi(
         })
         .where(eq(wordTranslations.id, existing[0].id))
         .returning();
-      return c.json({ success: true as const, data: updated as any }, 200);
+      return c.json(
+        { success: true as const, data: updated as Record<string, unknown> },
+        200,
+      );
     }
 
     const [inserted] = await db
@@ -462,7 +481,10 @@ contributor.openapi(
       })
       .returning();
 
-    return c.json({ success: true as const, data: inserted as any }, 201);
+    return c.json(
+      { success: true as const, data: inserted as Record<string, unknown> },
+      201,
+    );
   },
 );
 
@@ -524,7 +546,10 @@ contributor.openapi(
       .all();
 
     return c.json(
-      { success: true as const, data: result.results as any[] },
+      {
+        success: true as const,
+        data: result.results as z.infer<typeof FootnoteSchema>[],
+      },
       200,
     );
   },
@@ -704,7 +729,10 @@ contributor.openapi(
 
     const result = await c.env.DB.prepare(query).all();
     return c.json(
-      { success: true as const, data: result.results as any[] },
+      {
+        success: true as const,
+        data: result.results as Record<string, unknown>[],
+      },
       200,
     );
   },

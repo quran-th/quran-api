@@ -99,7 +99,10 @@ admin.openapi(
     `;
     const result = await c.env.DB.prepare(query).all();
     return c.json(
-      { success: true as const, data: result.results as any[] },
+      {
+        success: true as const,
+        data: result.results as Record<string, unknown>[],
+      },
       200,
     );
   },
@@ -332,7 +335,10 @@ admin.openapi(
     `;
     const result = await c.env.DB.prepare(query).all();
     return c.json(
-      { success: true as const, data: result.results as any[] },
+      {
+        success: true as const,
+        data: result.results as Record<string, unknown>[],
+      },
       200,
     );
   },
@@ -500,7 +506,10 @@ admin.openapi(
     `,
     ).all();
     return c.json(
-      { success: true as const, data: result.results as any[] },
+      {
+        success: true as const,
+        data: result.results as Record<string, unknown>[],
+      },
       200,
     );
   },
@@ -567,7 +576,13 @@ admin.openapi(
       })
       .returning();
 
-    return c.json({ success: true as const, data: created as any }, 201);
+    return c.json(
+      {
+        success: true as const,
+        data: created as unknown as z.infer<typeof TranslationSourceSchema>,
+      },
+      201,
+    );
   },
 );
 
@@ -658,7 +673,13 @@ admin.openapi(
       .where(eq(translationSources.id, numericId))
       .returning();
 
-    return c.json({ success: true as const, data: updated as any }, 200);
+    return c.json(
+      {
+        success: true as const,
+        data: updated as unknown as z.infer<typeof TranslationSourceSchema>,
+      },
+      200,
+    );
   },
 );
 
@@ -769,13 +790,22 @@ admin.openapi(
     },
   }),
   async (c) => {
+    type ContributorRow = {
+      id: number;
+      email: string;
+      display_name: string;
+      role: string;
+      is_active: number;
+      created_at: string | number | null;
+      last_login_at: string | number | null;
+    };
     const result = await c.env.DB.prepare(
       `SELECT id, email, display_name, role, is_active, created_at, last_login_at
        FROM contributors
        ORDER BY id ASC`,
-    ).all();
+    ).all<ContributorRow>();
 
-    const data = (result.results as any[]).map((row) => ({
+    const data = result.results.map((row) => ({
       id: row.id,
       email: row.email,
       displayName: row.display_name,
@@ -785,7 +815,13 @@ admin.openapi(
       lastLoginAt: row.last_login_at,
     }));
 
-    return c.json({ success: true as const, data }, 200);
+    return c.json(
+      {
+        success: true as const,
+        data: data as z.infer<typeof ContributorListItemSchema>[],
+      },
+      200,
+    );
   },
 );
 

@@ -125,7 +125,7 @@ app.openapi(
     c.json(
       {
         success: true as const,
-        data: surahs as any[],
+        data: surahs as unknown as z.infer<typeof SurahSchema>[],
         timestamp: new Date().toISOString(),
       },
       200,
@@ -303,8 +303,14 @@ app.openapi(
       return c.json(
         {
           success: true as const,
-          data: { ...surah, sourceId, verses, pagination } as any,
+          data: {
+            ...surah,
+            sourceId,
+            verses,
+            pagination,
+          } as unknown as z.infer<typeof SurahWithPaginatedVersesSchema>,
         },
+        200,
       );
     } catch (e) {
       console.error(e);
@@ -371,7 +377,10 @@ app.openapi(
       }
 
       // Parse requested keys: "surah:verse" -> { surah, verse }
-      const keyMap = new Map<string, { surah: number; verse: number; originalOrder: number }>();
+      const keyMap = new Map<
+        string,
+        { surah: number; verse: number; originalOrder: number }
+      >();
       keys.forEach((k, idx) => {
         const [surah, verse] = k.split(":").map(Number);
         keyMap.set(k, { surah, verse, originalOrder: idx });
@@ -379,37 +388,50 @@ app.openapi(
 
       // Construct WHERE clause for multiple pairs: (surah = X AND verse = Y) OR ...
       // D1 has a parameter limit (usually 100 or 999), so if keys > 100 we might need chunking.
-      // Maximum page size is ~15 verses on average, so max keys ~15. Chunking not strictly needed for page, 
+      // Maximum page size is ~15 verses on average, so max keys ~15. Chunking not strictly needed for page,
       // but let's build the query dynamically.
       const conditions: string[] = [];
-      const params: any[] = [];
+      const params: (string | number | null | boolean)[] = [];
       for (const { surah, verse } of keyMap.values()) {
         conditions.push("(surah_number = ? AND verse_number = ?)");
         params.push(surah, verse);
       }
-      
+
       if (conditions.length === 0) {
-        return c.json({ success: true as const, data: { sourceId, verses: [] } }, 200);
+        return c.json(
+          { success: true as const, data: { sourceId, verses: [] } },
+          200,
+        );
       }
 
       const whereClause = conditions.join(" OR ");
 
       // Fetch Arabic verse text
       const arabicVerses = await c.env.DB.prepare(
-        `SELECT surah_number, verse_number, content FROM quran_translations WHERE ${whereClause}`
-      ).bind(...params).all<{ surah_number: number; verse_number: number; content: string }>();
+        `SELECT surah_number, verse_number, content FROM quran_translations WHERE ${whereClause}`,
+      )
+        .bind(...params)
+        .all<{ surah_number: number; verse_number: number; content: string }>();
 
-      // Fetch Thai translations for the chosen source 
+      // Fetch Thai translations for the chosen source
       const vtRows = await c.env.DB.prepare(
         `SELECT id, surah_number, verse_number, translation_text, is_verified 
          FROM verse_translations 
-         WHERE source_id = ? AND (${whereClause})`
-      ).bind(sourceId, ...params).all<{ id: number; surah_number: number; verse_number: number; translation_text: string; is_verified: number }>();
+         WHERE source_id = ? AND (${whereClause})`,
+      )
+        .bind(sourceId, ...params)
+        .all<{
+          id: number;
+          surah_number: number;
+          verse_number: number;
+          translation_text: string;
+          is_verified: number;
+        }>();
 
       const vtIds = vtRows.results.map((r) => r.id);
-      
+
       const footnoteMap = new Map<number, { number: number; text: string }[]>();
-      
+
       if (vtIds.length > 0) {
         // Fetch footnotes
         const placeholders = vtIds.map(() => "?").join(",");
@@ -417,24 +439,35 @@ app.openapi(
           `SELECT verse_translation_id, footnote_number, text 
            FROM translation_footnotes 
            WHERE verse_translation_id IN (${placeholders})
-           ORDER BY verse_translation_id, footnote_number ASC`
-        ).bind(...vtIds).all<{ verse_translation_id: number; footnote_number: number; text: string }>();
+           ORDER BY verse_translation_id, footnote_number ASC`,
+        )
+          .bind(...vtIds)
+          .all<{
+            verse_translation_id: number;
+            footnote_number: number;
+            text: string;
+          }>();
 
         fnRows.results.forEach((fn) => {
           if (!footnoteMap.has(fn.verse_translation_id)) {
             footnoteMap.set(fn.verse_translation_id, []);
           }
-          footnoteMap.get(fn.verse_translation_id)!.push({ number: fn.footnote_number, text: fn.text });
+          footnoteMap
+            .get(fn.verse_translation_id)!
+            .push({ number: fn.footnote_number, text: fn.text });
         });
       }
 
       // Merge Arabic content + Thai translation + footnotes per verse
       const translationByVerse = new Map(
-        vtRows.results.map((r) => [`${r.surah_number}:${r.verse_number}`, r])
+        vtRows.results.map((r) => [`${r.surah_number}:${r.verse_number}`, r]),
       );
-      
+
       const arabicByVerse = new Map(
-        arabicVerses.results.map((r) => [`${r.surah_number}:${r.verse_number}`, r])
+        arabicVerses.results.map((r) => [
+          `${r.surah_number}:${r.verse_number}`,
+          r,
+        ]),
       );
 
       // Assemble results strictly in the order requested by `keys`
@@ -442,7 +475,7 @@ app.openapi(
         const arabic = arabicByVerse.get(k);
         const vt = translationByVerse.get(k);
         const [surah, verse] = k.split(":").map(Number);
-        
+
         return {
           surahNumber: surah,
           verseNumber: verse,
@@ -462,9 +495,12 @@ app.openapi(
       );
     } catch (e) {
       console.error(e);
-      return c.json({ success: false as const, message: "Failed to fetch verses by keys" }, 500);
+      return c.json(
+        { success: false as const, message: "Failed to fetch verses by keys" },
+        500,
+      );
     }
-  }
+  },
 );
 
 // ─── GET /verse-words/:surahId ─────────────────────────────────────────────────
@@ -571,7 +607,13 @@ app.openapi(
         .from(translationSources)
         .orderBy(asc(translationSources.id))
         .all();
-      return c.json({ success: true as const, data: sources as any[] }, 200);
+      return c.json(
+        {
+          success: true as const,
+          data: sources as unknown as z.infer<typeof TranslationSourceSchema>[],
+        },
+        200,
+      );
     } catch (e) {
       console.error(e);
       return c.json(
