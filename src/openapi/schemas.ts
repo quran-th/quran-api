@@ -314,6 +314,7 @@ export const SurahSchema = z
   .object({
     id: z.number().openapi({ example: 1 }),
     name: z.string().openapi({ example: "Al-Fatihah" }),
+    name_meaning_thai: z.string().openapi({ example: "ผู้เปิด" }),
   })
   .passthrough()
   .openapi("Surah");
