@@ -917,7 +917,12 @@ contributor.openapi(
           "application/json": {
             schema: z.object({
               success: z.literal(true),
-              data: z.array(z.record(z.string(), z.unknown())),
+              data: z.object({
+                reports: z.array(z.record(z.string(), z.unknown())),
+                currentTranslation: z.string().nullable(),
+                verseTranslationId: z.number().nullable(),
+                currentFootnotes: z.array(z.record(z.string(), z.unknown())),
+              }),
             }),
           },
         },
@@ -1002,7 +1007,8 @@ contributor.openapi(
     method: "post",
     path: "/issues/{reportId}/promote",
     tags: ["Contributor"],
-    summary: "Promote an issue report into a pending contribution for the admin queue",
+    summary:
+      "Promote an issue report into a pending contribution for the admin queue",
     security: [{ bearerAuth: [] }],
     request: {
       params: z.object({
@@ -1057,12 +1063,18 @@ contributor.openapi(
       }>();
 
     if (!report) {
-      return c.json({ success: false as const, message: "Report not found" }, 404);
+      return c.json(
+        { success: false as const, message: "Report not found" },
+        404,
+      );
     }
 
     if (!report.suggested_text?.trim()) {
       return c.json(
-        { success: false as const, message: "Report has no suggested text to promote" },
+        {
+          success: false as const,
+          message: "Report has no suggested text to promote",
+        },
         400,
       );
     }
@@ -1080,7 +1092,10 @@ contributor.openapi(
         .first<{ id: number }>();
 
       if (!vt) {
-        return c.json({ success: false as const, message: "Verse translation not found" }, 404);
+        return c.json(
+          { success: false as const, message: "Verse translation not found" },
+          404,
+        );
       }
       vtId = vt.id;
     }
@@ -1093,7 +1108,10 @@ contributor.openapi(
       .first<{ source_id: number }>();
 
     if (!vtRow) {
-      return c.json({ success: false as const, message: "Verse translation not found" }, 404);
+      return c.json(
+        { success: false as const, message: "Verse translation not found" },
+        404,
+      );
     }
 
     // Create the contribution
