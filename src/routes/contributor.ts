@@ -1510,4 +1510,67 @@ contributor.openapi(
   },
 );
 
+// ─── GET /contributor/stats ───────────────────────────────────────────────────
+
+contributor.openapi(
+  createRoute({
+    method: "get",
+    path: "/stats",
+    tags: ["Contributor"],
+    summary: "Dashboard statistics",
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(true),
+              data: z.object({
+                pendingProposals: z.number(),
+                openIssues: z.number(),
+                approvedEdits: z.number(),
+                pendingWords: z.number(),
+              }),
+            }),
+          },
+        },
+        description: "Dashboard stats",
+      },
+      401: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Unauthorized",
+      },
+    },
+  }),
+  async (c) => {
+    const [pending, issues, approved, words] = await Promise.all([
+      c.env.DB.prepare(
+        `SELECT COUNT(*) as cnt FROM contributions WHERE status = 'pending'`,
+      ).first<{ cnt: number }>(),
+      c.env.DB.prepare(
+        `SELECT COUNT(*) as cnt FROM issue_reports WHERE status = 'open'`,
+      ).first<{ cnt: number }>(),
+      c.env.DB.prepare(
+        `SELECT COUNT(*) as cnt FROM contributions WHERE status = 'approved'`,
+      ).first<{ cnt: number }>(),
+      c.env.DB.prepare(
+        `SELECT COUNT(*) as cnt FROM word_translations WHERE status = 'pending'`,
+      ).first<{ cnt: number }>(),
+    ]);
+
+    return c.json(
+      {
+        success: true as const,
+        data: {
+          pendingProposals: pending?.cnt ?? 0,
+          openIssues: issues?.cnt ?? 0,
+          approvedEdits: approved?.cnt ?? 0,
+          pendingWords: words?.cnt ?? 0,
+        },
+      },
+      200,
+    );
+  },
+);
+
 export default contributor;
