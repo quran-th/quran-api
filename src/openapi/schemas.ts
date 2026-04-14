@@ -83,6 +83,16 @@ export const SourceCreateBodySchema = z
     language: z.string().optional().openapi({ example: "th" }),
     description: z.string().optional(),
     isDefault: z.boolean().optional().openapi({ example: false }),
+    externalType: z
+      .string()
+      .nullable()
+      .optional()
+      .openapi({ example: "mokhtasr" }),
+    externalConfig: z
+      .string()
+      .nullable()
+      .optional()
+      .openapi({ example: '{"bookId":339,"apiToken":"..."}' }),
   })
   .openapi("SourceCreateBody");
 
@@ -94,6 +104,8 @@ export const SourceUpdateBodySchema = z
     language: z.string().optional(),
     description: z.string().optional(),
     isDefault: z.boolean().optional(),
+    externalType: z.string().nullable().optional(),
+    externalConfig: z.string().nullable().optional(),
   })
   .openapi("SourceUpdateBody");
 

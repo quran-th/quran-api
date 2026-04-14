@@ -573,6 +573,8 @@ admin.openapi(
         language: body.language?.trim() || "th",
         description: body.description?.trim() || null,
         isDefault: body.isDefault ? 1 : 0,
+        externalType: body.externalType || null,
+        externalConfig: body.externalConfig || null,
       })
       .returning();
 
@@ -668,6 +670,12 @@ admin.openapi(
         }),
         ...(body.isDefault !== undefined && {
           isDefault: body.isDefault ? 1 : 0,
+        }),
+        ...(body.externalType !== undefined && {
+          externalType: body.externalType || null,
+        }),
+        ...(body.externalConfig !== undefined && {
+          externalConfig: body.externalConfig || null,
         }),
       })
       .where(eq(translationSources.id, numericId))
