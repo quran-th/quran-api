@@ -436,7 +436,10 @@ app.openapi(
         hasMore,
       };
 
-      // No long browser cache: responses can change as lazy revalidation
+      // Cache-Control: Cache the response at the edge for 1 hour.
+      // The lazy revalidation ensures that even cached responses are fresh within the revalidation window,
+      // so we can afford to cache for a reasonable duration to improve performance and reduce load.
+      c.header("Cache-Control", "public, max-age=3600");
       // populates missing external translations. Page-level ISR handles
       // edge caching in production.
       return c.json(
