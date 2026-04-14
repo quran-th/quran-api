@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/quran-th/quran-api/compare/v1.7.0...v1.8.0) (2026-04-14)
+
+
+### Features
+
+* support admin management for external source ([7eb1f1b](https://github.com/quran-th/quran-api/commit/7eb1f1b08552766d5f304636affb9065149af20b))
+
 # [1.7.0](https://github.com/quran-th/quran-api/compare/v1.6.0...v1.7.0) (2026-04-14)
 
 
