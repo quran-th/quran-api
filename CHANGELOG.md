@@ -1,3 +1,11 @@
+# [1.7.0](https://github.com/quran-th/quran-api/compare/v1.6.0...v1.7.0) (2026-04-14)
+
+
+### Features
+
+* add external source with auto revalidating translation ([6d7e679](https://github.com/quran-th/quran-api/commit/6d7e67988d69a59f5a0c3dd0729d17f046e2cddd))
+* add external source with auto revalidating translation ([5fda697](https://github.com/quran-th/quran-api/commit/5fda697d7d8f53e015a292e0e9703e9d16d191d8))
+
 # [1.6.0](https://github.com/quran-th/quran-api/compare/v1.5.0...v1.6.0) (2026-04-01)
 
 
