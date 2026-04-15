@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/quran-th/quran-api/compare/v1.8.1...v1.8.2) (2026-04-15)
+
+
+### Bug Fixes
+
+* unblock response with `waitUntil` instead of await ([a95a9ed](https://github.com/quran-th/quran-api/commit/a95a9ed29dfd0f9fa125bc9827c34877fb33c1dd))
+
 ## [1.8.1](https://github.com/quran-th/quran-api/compare/v1.8.0...v1.8.1) (2026-04-15)
 
 
