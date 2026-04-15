@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/quran-th/quran-api/compare/v1.8.0...v1.8.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* strip out `<br/>` from mukhtasar text ([44cb49b](https://github.com/quran-th/quran-api/commit/44cb49bf1fadddf2bfe10ba2279241906769626a))
+
 # [1.8.0](https://github.com/quran-th/quran-api/compare/v1.7.0...v1.8.0) (2026-04-14)
 
 
