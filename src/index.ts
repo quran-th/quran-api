@@ -277,9 +277,9 @@ app.openapi(
       if (revalidationDays > 0) {
         const src = sourceRow[0];
         if (src?.externalType) {
-          // Synchronously cover the visible window so the first response
-          // always contains fresh translations. The service bails cheaply
-          // when nothing is missing/stale.
+          // Stale-while-revalidate: serve what we have immediately and
+          // refresh in the background via waitUntil. This avoids blocking
+          // the response on slow external API calls (SWR pattern).
           const windowStart = offset + 1;
           const windowEnd = Math.min(offset + limit, surah.verses_count);
           const windowVerseNumbers = Array.from(
@@ -288,18 +288,19 @@ app.openapi(
           );
 
           if (windowVerseNumbers.length > 0) {
-            await revalidateExternalSource(
-              c.env.DB,
-              src,
-              numericId,
-              windowVerseNumbers,
-              revalidationDays,
+            c.executionCtx.waitUntil(
+              revalidateExternalSource(
+                c.env.DB,
+                src,
+                numericId,
+                windowVerseNumbers,
+                revalidationDays,
+              ),
             );
           }
 
           // Prefetch one page ahead in the background so forward
-          // navigation is instant. Bounded to `limit` verses so it fits
-          // within the waitUntil budget.
+          // navigation is instant.
           const nextStart = windowEnd + 1;
           const nextEnd = Math.min(windowEnd + limit, surah.verses_count);
           if (nextStart <= nextEnd) {
@@ -548,16 +549,18 @@ app.openapi(
             surahGroups.get(s)!.push(v);
           }
 
-          // Synchronously cover the requested keys (per-surah groups in
-          // parallel) so the response always contains fresh translations.
-          await Promise.all(
-            Array.from(surahGroups, ([surahNum, verses]) =>
-              revalidateExternalSource(
-                c.env.DB,
-                src,
-                surahNum,
-                verses,
-                revalidationDays,
+          // Stale-while-revalidate: refresh in the background so the
+          // response is never blocked on slow external API calls.
+          c.executionCtx.waitUntil(
+            Promise.all(
+              Array.from(surahGroups, ([surahNum, verses]) =>
+                revalidateExternalSource(
+                  c.env.DB,
+                  src,
+                  surahNum,
+                  verses,
+                  revalidationDays,
+                ),
               ),
             ),
           );

@@ -7,6 +7,7 @@
  */
 
 const MOKHTASR_BASE = "https://admin.mokhtasr.com/api/v1";
+const FETCH_TIMEOUT_MS = 5000;
 
 interface MokhtasrBookEntry {
   text: string;
@@ -62,6 +63,9 @@ async function fetchAyah(
   surah: number,
   ayah: number,
 ): Promise<FetchedVerse | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
     const url = `${MOKHTASR_BASE}/book-contents?books=${config.bookId}&sura=${surah}&aya=${ayah}`;
     const res = await fetch(url, {
@@ -69,6 +73,7 @@ async function fetchAyah(
         Authorization: `Bearer ${config.apiToken}`,
         Accept: "application/json",
       },
+      signal: controller.signal,
     });
     if (!res.ok) return null;
 
@@ -84,6 +89,8 @@ async function fetchAyah(
     };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
