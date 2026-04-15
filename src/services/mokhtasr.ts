@@ -36,6 +36,11 @@ export interface FetchedVerse {
   translationText: string;
 }
 
+/** Post-process mokhtasr text: convert HTML line breaks to newlines. */
+export function cleanMokhtasrText(text: string): string {
+  return text.replace(/<br\s*\/?>/gi, "");
+}
+
 export function parseExternalConfig(
   json: string | null,
 ): ExternalConfig | null {
@@ -75,7 +80,7 @@ async function fetchAyah(
     return {
       surahNumber: surah,
       verseNumber: ayah,
-      translationText: text,
+      translationText: text.replace(/<br\s*\/?>/gi, ""),
     };
   } catch {
     return null;

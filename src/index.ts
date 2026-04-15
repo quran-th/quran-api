@@ -8,6 +8,7 @@ import { quranTranslations, translationSources } from "./db/schema";
 import { surahs } from "./data/surahs";
 import { juzs } from "./data/juzs";
 import { revalidateExternalSource } from "./services/revalidation";
+import { cleanMokhtasrText } from "./services/mokhtasr";
 import auth from "./routes/auth";
 import contributor from "./routes/contributor";
 import admin from "./routes/admin";
@@ -262,17 +263,18 @@ app.openapi(
 
       // Lazy revalidation for external sources
       const revalidationDays = parseInt(c.env.REVALIDATION_DAYS || "0", 10);
-      if (revalidationDays > 0) {
-        const sourceRow = await db
-          .select({
-            id: translationSources.id,
-            externalType: translationSources.externalType,
-            externalConfig: translationSources.externalConfig,
-          })
-          .from(translationSources)
-          .where(eq(translationSources.id, sourceId))
-          .limit(1);
+      const sourceRow = await db
+        .select({
+          id: translationSources.id,
+          externalType: translationSources.externalType,
+          externalConfig: translationSources.externalConfig,
+        })
+        .from(translationSources)
+        .where(eq(translationSources.id, sourceId))
+        .limit(1);
+      const isMokhtasr = sourceRow[0]?.externalType === "mokhtasr";
 
+      if (revalidationDays > 0) {
         const src = sourceRow[0];
         if (src?.externalType) {
           // Synchronously cover the visible window so the first response
@@ -419,7 +421,11 @@ app.openapi(
         return {
           verseNumber: av.verseNumber,
           content: av.content,
-          translation: vt?.translation_text ?? "",
+          translation: vt
+            ? isMokhtasr
+              ? cleanMokhtasrText(vt.translation_text)
+              : vt.translation_text
+            : "",
           footnotes: vt ? (footnoteMap.get(vt.id) ?? []) : [],
           isVerified: vt ? Boolean(vt.is_verified) : false,
         };
@@ -520,17 +526,18 @@ app.openapi(
 
       // Lazy revalidation for external sources (by-keys)
       const revalidationDays = parseInt(c.env.REVALIDATION_DAYS || "0", 10);
-      if (revalidationDays > 0 && keys.length > 0) {
-        const sourceRow = await db
-          .select({
-            id: translationSources.id,
-            externalType: translationSources.externalType,
-            externalConfig: translationSources.externalConfig,
-          })
-          .from(translationSources)
-          .where(eq(translationSources.id, sourceId))
-          .limit(1);
+      const sourceRow = await db
+        .select({
+          id: translationSources.id,
+          externalType: translationSources.externalType,
+          externalConfig: translationSources.externalConfig,
+        })
+        .from(translationSources)
+        .where(eq(translationSources.id, sourceId))
+        .limit(1);
+      const isMokhtasr = sourceRow[0]?.externalType === "mokhtasr";
 
+      if (revalidationDays > 0 && keys.length > 0) {
         const src = sourceRow[0];
         if (src?.externalType) {
           // Group keys by surah to check revalidation per surah
@@ -661,7 +668,11 @@ app.openapi(
           surahNumber: surah,
           verseNumber: verse,
           content: arabic?.content ?? "",
-          translation: vt?.translation_text ?? "",
+          translation: vt
+            ? isMokhtasr
+              ? cleanMokhtasrText(vt.translation_text)
+              : vt.translation_text
+            : "",
           footnotes: vt ? (footnoteMap.get(vt.id) ?? []) : [],
           isVerified: vt ? Boolean(vt.is_verified) : false,
         };
