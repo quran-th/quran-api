@@ -1209,10 +1209,13 @@ admin.openapi(
       }
     }
 
-    return c.json({
-      success: true as const,
-      data: { sourceId, totalMissing, gaps },
-    });
+    return c.json(
+      {
+        success: true as const,
+        data: { sourceId, totalMissing, gaps },
+      },
+      200,
+    );
   },
 );
 
@@ -1305,7 +1308,7 @@ admin.openapi(
 
     await c.env.DB.batch(stmts);
 
-    return c.json({ success: true as const, inserted: verses.length });
+    return c.json({ success: true as const, inserted: verses.length }, 200);
   },
 );
 
