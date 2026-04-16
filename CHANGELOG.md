@@ -1,3 +1,15 @@
+# [1.9.0](https://github.com/quran-th/quran-api/compare/v1.8.2...v1.9.0) (2026-04-16)
+
+
+### Bug Fixes
+
+* type errors for new sync api ([f215f43](https://github.com/quran-th/quran-api/commit/f215f43db8ade3013c8e95ffea27088e17e3a20f))
+
+
+### Features
+
+* add admin sync endpoints for gap detection and verse insertion ([7ba4ce7](https://github.com/quran-th/quran-api/commit/7ba4ce7916e0cd42070211a6a5f06a8a7e2fa1a2))
+
 ## [1.8.2](https://github.com/quran-th/quran-api/compare/v1.8.1...v1.8.2) (2026-04-15)
 
 
