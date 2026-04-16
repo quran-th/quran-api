@@ -1122,4 +1122,191 @@ admin.openapi(
   },
 );
 
+// ─── GET /admin/sync/gaps ─────────────────────────────────────────────────────
+// Returns all surah:verse keys missing for a given source. Used by sync scripts.
+
+admin.openapi(
+  createRoute({
+    method: "get",
+    path: "/sync/gaps",
+    tags: ["Admin"],
+    summary: "Get missing verse translation keys for a source",
+    security: [{ bearerAuth: [] }],
+    request: {
+      query: z.object({
+        sourceId: z.coerce.number().int().positive(),
+      }),
+    },
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(true),
+              data: z.object({
+                sourceId: z.number(),
+                totalMissing: z.number(),
+                gaps: z.array(
+                  z.object({
+                    surahNumber: z.number(),
+                    missingVerses: z.array(z.number()),
+                  }),
+                ),
+              }),
+            }),
+          },
+        },
+        description: "Gap list",
+      },
+      404: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Source not found",
+      },
+    },
+  }),
+  async (c) => {
+    const { sourceId } = c.req.valid("query");
+
+    const db = drizzle(c.env.DB);
+    const source = await db
+      .select({ id: translationSources.id })
+      .from(translationSources)
+      .where(eq(translationSources.id, sourceId))
+      .limit(1);
+
+    if (!source.length) {
+      return c.json(
+        { success: false as const, message: "Source not found" },
+        404,
+      );
+    }
+
+    const existing = await c.env.DB.prepare(
+      `SELECT surah_number, verse_number FROM verse_translations WHERE source_id = ? ORDER BY surah_number, verse_number`,
+    )
+      .bind(sourceId)
+      .all<{ surah_number: number; verse_number: number }>();
+
+    const existingSet = new Set(
+      existing.results.map((r) => `${r.surah_number}:${r.verse_number}`),
+    );
+
+    const surahMeta = await c.env.DB.prepare(
+      `SELECT DISTINCT surah_number, MAX(verse_number) as max_verse FROM quran_translations GROUP BY surah_number ORDER BY surah_number`,
+    ).all<{ surah_number: number; max_verse: number }>();
+
+    const gaps: { surahNumber: number; missingVerses: number[] }[] = [];
+    let totalMissing = 0;
+
+    for (const { surah_number, max_verse } of surahMeta.results) {
+      const missing: number[] = [];
+      for (let v = 1; v <= max_verse; v++) {
+        if (!existingSet.has(`${surah_number}:${v}`)) missing.push(v);
+      }
+      if (missing.length > 0) {
+        gaps.push({ surahNumber: surah_number, missingVerses: missing });
+        totalMissing += missing.length;
+      }
+    }
+
+    return c.json({
+      success: true as const,
+      data: { sourceId, totalMissing, gaps },
+    });
+  },
+);
+
+// ─── POST /admin/sync/verses ──────────────────────────────────────────────────
+// Bulk upsert verse translations. Used by sync scripts to fill gaps.
+
+admin.openapi(
+  createRoute({
+    method: "post",
+    path: "/sync/verses",
+    tags: ["Admin"],
+    summary: "Bulk upsert verse translations",
+    security: [{ bearerAuth: [] }],
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              sourceId: z.number().int().positive(),
+              verses: z
+                .array(
+                  z.object({
+                    surahNumber: z.number().int().min(1).max(114),
+                    verseNumber: z.number().int().min(1),
+                    translationText: z.string().min(1),
+                  }),
+                )
+                .min(1)
+                .max(100),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(true),
+              inserted: z.number(),
+            }),
+          },
+        },
+        description: "Verses upserted",
+      },
+      404: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Source not found",
+      },
+    },
+  }),
+  async (c) => {
+    const { sourceId, verses } = c.req.valid("json");
+
+    const db = drizzle(c.env.DB);
+    const source = await db
+      .select({ id: translationSources.id })
+      .from(translationSources)
+      .where(eq(translationSources.id, sourceId))
+      .limit(1);
+
+    if (!source.length) {
+      return c.json(
+        { success: false as const, message: "Source not found" },
+        404,
+      );
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    // D1 caps bound parameters at 100 per statement; 5 params/row → max 20 rows per batch.
+    const CHUNK = 20;
+    const stmts = [];
+    for (let i = 0; i < verses.length; i += CHUNK) {
+      const chunk = verses.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => "(?, ?, ?, ?, 1, ?)").join(", ");
+      const params = chunk.flatMap((v) => [
+        sourceId,
+        v.surahNumber,
+        v.verseNumber,
+        v.translationText,
+        now,
+      ]);
+      stmts.push(
+        c.env.DB.prepare(
+          `INSERT OR REPLACE INTO verse_translations (source_id, surah_number, verse_number, translation_text, is_verified, last_updated) VALUES ${placeholders}`,
+        ).bind(...params),
+      );
+    }
+
+    await c.env.DB.batch(stmts);
+
+    return c.json({ success: true as const, inserted: verses.length });
+  },
+);
+
 export default admin;
