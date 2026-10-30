@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/quran-th/quran-api/compare/v1.9.0...v1.10.0) (2026-10-30)
+
+
+### Features
+
+* reciters list and word-timing recitation endpoints ([1a8d23f](https://github.com/quran-th/quran-api/commit/1a8d23f6afccb7b1c31393834824c7975a17d231))
+
 # [1.9.0](https://github.com/quran-th/quran-api/compare/v1.8.2...v1.9.0) (2026-04-16)
 
 
