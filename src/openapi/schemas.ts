@@ -437,3 +437,53 @@ export const SurahWithPaginatedVersesSchema = SurahSchema.extend({
   verses: z.array(SurahVerseSchema),
   pagination: PaginationSchema,
 }).openapi("SurahWithPaginatedVerses");
+
+// ─── Recitations (Public) ─────────────────────────────────────────────────────
+
+export const ReciterSchema = z
+  .object({
+    id: z.number().openapi({ example: 7 }),
+    name: z.string().openapi({ example: "Mishari Rashid al-Afasy" }),
+    style: z.string().openapi({ example: "Murattal" }),
+  })
+  .openapi("Reciter");
+
+export const RecitationTimingsParamSchema = z.object({
+  reciterId: z.coerce
+    .number()
+    .int()
+    .positive()
+    .openapi({ param: { name: "reciterId", in: "path" }, example: 7 }),
+  chapter: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(114)
+    .openapi({ param: { name: "chapter", in: "path" }, example: 1 }),
+});
+
+export const RecitationVerseTimingSchema = z
+  .object({
+    verseKey: z.string().openapi({ example: "1:1" }),
+    from: z.number().openapi({ example: 0 }),
+    to: z.number().openapi({ example: 6090 }),
+    segments: z.array(z.tuple([z.number(), z.number(), z.number()])).openapi({
+      description:
+        "[wordPosition, startMs, endMs] — absolute in the surah audio",
+      example: [
+        [1, 0, 580],
+        [2, 580, 1409],
+      ],
+    }),
+  })
+  .openapi("RecitationVerseTiming");
+
+export const RecitationTimingsSchema = z
+  .object({
+    reciterId: z.number(),
+    chapter: z.number(),
+    audioUrl: z.string().url(),
+    duration: z.number().openapi({ description: "Milliseconds" }),
+    verses: z.array(RecitationVerseTimingSchema),
+  })
+  .openapi("RecitationTimings");

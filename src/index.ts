@@ -7,6 +7,7 @@ import { quranTranslations, translationSources } from "./db/schema";
 
 import { surahs } from "./data/surahs";
 import { juzs } from "./data/juzs";
+import { reciters, DEFAULT_RECITER_ID } from "./data/reciters";
 import { revalidateExternalSource } from "./services/revalidation";
 import { cleanMokhtasrText } from "./services/mokhtasr";
 import auth from "./routes/auth";
@@ -24,6 +25,9 @@ import {
   VersesByKeysBodySchema,
   VersesByKeysResponseSchema,
   JuzSchema,
+  ReciterSchema,
+  RecitationTimingsParamSchema,
+  RecitationTimingsSchema,
 } from "./openapi/schemas";
 
 type MushafPageEntry = {
@@ -832,6 +836,168 @@ app.openapi(
           message: "Failed to fetch translation sources",
         },
         500,
+      );
+    }
+  },
+);
+
+// ─── GET /reciters ────────────────────────────────────────────────────────────
+// Reciters with word-level timing segments (static list).
+
+app.openapi(
+  createRoute({
+    method: "get",
+    path: "/reciters",
+    tags: ["Recitations"],
+    summary: "List reciters that support word-by-word highlighting",
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(true),
+              data: z.array(ReciterSchema),
+              defaultReciterId: z.number(),
+            }),
+          },
+        },
+        description: "Reciter list",
+      },
+    },
+  }),
+  (c) => {
+    c.header("Cache-Control", "public, max-age=86400");
+    return c.json(
+      {
+        success: true as const,
+        data: reciters,
+        defaultReciterId: DEFAULT_RECITER_ID,
+      },
+      200,
+    );
+  },
+);
+
+// ─── GET /recitations/:reciterId/:chapter/timings ────────────────────────────
+// Word-level timings for a surah recitation, sourced from quran.com (QDC).
+// Only timings pass through the Worker; the client streams `audioUrl`
+// directly from quranicaudio.com. Upstream responses are edge-cached via
+// cf.cacheTtl and the browser caches ours for 7 days — timings almost never
+// change, so no KV layer is needed.
+
+const RECITATION_CACHE_SECONDS = 604800;
+
+interface QdcAudioFilesResponse {
+  audio_files: {
+    audio_url: string;
+    duration: number;
+    verse_timings: {
+      verse_key: string;
+      timestamp_from: number;
+      timestamp_to: number;
+      segments: number[][];
+    }[];
+  }[];
+}
+
+app.openapi(
+  createRoute({
+    method: "get",
+    path: "/recitations/{reciterId}/{chapter}/timings",
+    tags: ["Recitations"],
+    summary: "Get surah audio URL with word-level timings",
+    request: {
+      params: RecitationTimingsParamSchema,
+    },
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(true),
+              data: RecitationTimingsSchema,
+            }),
+          },
+        },
+        description: "Audio URL and per-word timings",
+      },
+      404: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Reciter not supported",
+      },
+      502: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Upstream audio provider error",
+      },
+    },
+  }),
+  async (c) => {
+    const { reciterId, chapter } = c.req.valid("param");
+
+    // Allowlist prevents this route from acting as an open proxy.
+    if (!reciters.some((r) => r.id === reciterId)) {
+      return c.json(
+        { success: false as const, message: "Reciter not supported" },
+        404,
+      );
+    }
+
+    try {
+      const upstream = await fetch(
+        `https://api.qurancdn.com/api/qdc/audio/reciters/${reciterId}/audio_files?chapter=${chapter}&segments=true`,
+        {
+          cf: { cacheTtl: RECITATION_CACHE_SECONDS, cacheEverything: true },
+        },
+      );
+      if (!upstream.ok) {
+        return c.json(
+          { success: false as const, message: "Upstream error" },
+          502,
+        );
+      }
+
+      const { audio_files: files } =
+        await upstream.json<QdcAudioFilesResponse>();
+      const file = files?.[0];
+      if (!file) {
+        return c.json(
+          { success: false as const, message: "Recitation not available" },
+          502,
+        );
+      }
+
+      const verses = file.verse_timings.map((v) => ({
+        verseKey: v.verse_key,
+        from: v.timestamp_from,
+        to: v.timestamp_to,
+        // Upstream contains malformed entries like [1] or [2, 500]
+        segments: (v.segments ?? []).filter(
+          (s): s is [number, number, number] => s.length === 3,
+        ),
+      }));
+
+      c.header(
+        "Cache-Control",
+        `public, max-age=${RECITATION_CACHE_SECONDS}, stale-while-revalidate=86400`,
+      );
+      return c.json(
+        {
+          success: true as const,
+          data: {
+            reciterId,
+            chapter,
+            audioUrl: file.audio_url,
+            duration: file.duration,
+            verses,
+          },
+        },
+        200,
+      );
+    } catch (e) {
+      console.error(e);
+      return c.json(
+        { success: false as const, message: "Upstream error" },
+        502,
       );
     }
   },
