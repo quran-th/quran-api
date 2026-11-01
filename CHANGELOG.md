@@ -1,3 +1,15 @@
+# [1.11.0](https://github.com/quran-th/quran-api/compare/v1.10.0...v1.11.0) (2026-11-01)
+
+
+### Bug Fixes
+
+* shorten /reciters cache to 5 minutes ([2fe19b9](https://github.com/quran-th/quran-api/commit/2fe19b93030ee8597b53416b60a32c69c6b0d567))
+
+
+### Features
+
+* add mp3quran reciters with ayah-level timings ([8910c95](https://github.com/quran-th/quran-api/commit/8910c959bc4b782e1c7f43078bc6f4fd19084126))
+
 # [1.10.0](https://github.com/quran-th/quran-api/compare/v1.9.0...v1.10.0) (2026-10-30)
 
 
