@@ -849,7 +849,8 @@ app.openapi(
     method: "get",
     path: "/reciters",
     tags: ["Recitations"],
-    summary: "List reciters that support word-by-word highlighting",
+    summary:
+      "List reciters (hasWordTimings marks word-by-word highlight support)",
     responses: {
       200: {
         content: {
@@ -870,7 +871,12 @@ app.openapi(
     return c.json(
       {
         success: true as const,
-        data: reciters,
+        data: reciters.map(({ id, name, style, hasWordTimings }) => ({
+          id,
+          name,
+          style,
+          hasWordTimings,
+        })),
         defaultReciterId: DEFAULT_RECITER_ID,
       },
       200,
@@ -898,6 +904,12 @@ interface QdcAudioFilesResponse {
       segments: number[][];
     }[];
   }[];
+}
+
+interface Mp3QuranAyahTiming {
+  ayah: number;
+  start_time: number;
+  end_time: number;
 }
 
 app.openapi(
@@ -935,11 +947,70 @@ app.openapi(
     const { reciterId, chapter } = c.req.valid("param");
 
     // Allowlist prevents this route from acting as an open proxy.
-    if (!reciters.some((r) => r.id === reciterId)) {
+    const reciter = reciters.find((r) => r.id === reciterId);
+    if (!reciter) {
       return c.json(
         { success: false as const, message: "Reciter not supported" },
         404,
       );
+    }
+
+    if (reciter.ayahTimingsRead && reciter.audioFolder) {
+      try {
+        const upstream = await fetch(
+          `https://www.mp3quran.net/api/v3/ayat_timing?surah=${chapter}&read=${reciter.ayahTimingsRead}`,
+          {
+            cf: { cacheTtl: RECITATION_CACHE_SECONDS, cacheEverything: true },
+          },
+        );
+        if (!upstream.ok) {
+          return c.json(
+            { success: false as const, message: "Upstream error" },
+            502,
+          );
+        }
+
+        const rows = await upstream.json<Mp3QuranAyahTiming[]>();
+        // ayah 0 is the audio intro (isti'adha/basmala), not a verse
+        const verses = rows
+          .filter((r) => r.ayah > 0)
+          .map((r) => ({
+            verseKey: `${chapter}:${r.ayah}`,
+            from: r.start_time,
+            to: r.end_time,
+            segments: [] as [number, number, number][],
+          }));
+        if (verses.length === 0) {
+          return c.json(
+            { success: false as const, message: "Recitation not available" },
+            502,
+          );
+        }
+
+        c.header(
+          "Cache-Control",
+          `public, max-age=${RECITATION_CACHE_SECONDS}, stale-while-revalidate=86400`,
+        );
+        return c.json(
+          {
+            success: true as const,
+            data: {
+              reciterId,
+              chapter,
+              audioUrl: `https://cdn.mp3quran.net/audio/${reciter.audioFolder}/${String(chapter).padStart(3, "0")}.mp3`,
+              duration: verses[verses.length - 1]!.to,
+              verses,
+            },
+          },
+          200,
+        );
+      } catch (e) {
+        console.error(e);
+        return c.json(
+          { success: false as const, message: "Upstream error" },
+          502,
+        );
+      }
     }
 
     try {

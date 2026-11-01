@@ -445,6 +445,9 @@ export const ReciterSchema = z
     id: z.number().openapi({ example: 7 }),
     name: z.string().openapi({ example: "Mishari Rashid al-Afasy" }),
     style: z.string().openapi({ example: "Murattal" }),
+    hasWordTimings: z.boolean().openapi({
+      description: "false = ayah-level timings only (no word highlight)",
+    }),
   })
   .openapi("Reciter");
 
