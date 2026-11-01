@@ -867,7 +867,7 @@ app.openapi(
     },
   }),
   (c) => {
-    c.header("Cache-Control", "public, max-age=86400");
+    c.header("Cache-Control", "public, max-age=300");
     return c.json(
       {
         success: true as const,
