@@ -18,6 +18,25 @@ const { ayahs } = await loadSnapshot()
 const SOURCE = 'mukhtasar-th'
 const execFileP = promisify(execFile)
 
+const surahNames = new Map([...(await readFile(new URL('../../src/data/surahs.ts', import.meta.url), 'utf8'))
+  .matchAll(/id: (\d+),[\s\S]*?name_thai: "([^"]+)"/g)].map(([, id, name]) => [Number(id), name]))
+const YEAR = String(new Date().getFullYear())
+// ID3v2.3 so Thai text shows in most players. The translation text belongs to Al-Mukhtasar;
+// the license only covers our recording. Model and voice details stay in the manifest.
+const id3Tags = (surah) => Object.entries({
+  title: `${surah}. ${surahNames.get(surah)} (คำแปลภาษาไทย)`,
+  artist: 'quran.in.th',
+  album_artist: 'Open Thai Quran Project',
+  album: 'คำแปลอัลกุรอานภาษาไทย – อัล-มุคตะศ็อร',
+  track: `${surah}/114`,
+  genre: 'Quran',
+  language: 'tha',
+  publisher: 'quran.in.th',
+  date: YEAR,
+  comment: 'https://quran.in.th · คำแปลจากอัล-มุคตะศ็อร (mokhtasr.com) · เสียงสังเคราะห์ (AI)',
+  copyright: `© ${YEAR} quran.in.th · CC BY-NC 4.0 · ข้อความคำแปลเป็นลิขสิทธิ์ของอัล-มุคตะศ็อร`,
+}).flatMap(([k, v]) => ['-metadata', `${k}=${v}`]).concat('-id3v2_version', '3')
+
 // Each clip is decoded to mono 44.1 kHz 16-bit PCM, so its length is an exact sample count.
 // The pieces and silences are joined as PCM and encoded once (mp3 64 kbps), which avoids
 // the per-file encoder padding that makes joined mp3 files drift from summed durations.
@@ -66,7 +85,7 @@ for (const surah of surahs) {
   const pcmFile = path.join(root, `.build-${surah}.pcm`)
   await writeFile(pcmFile, Buffer.concat(chunks))
   const out = path.join(root, 'surahs', `${surah}.mp3`)
-  await run('ffmpeg', ['-y', '-v', 'error', '-f', 's16le', '-ar', String(RATE), '-ac', '1', '-i', pcmFile, '-c:a', 'libmp3lame', '-b:a', '64k', out])
+  await run('ffmpeg', ['-y', '-v', 'error', '-f', 's16le', '-ar', String(RATE), '-ac', '1', '-i', pcmFile, '-c:a', 'libmp3lame', '-b:a', '64k', ...id3Tags(surah), out])
   await rm(pcmFile, { force: true })
   const actual = await ffprobeDurationMs(out)
   report.push({ surah, expected: cursor, actual, drift: actual - cursor })
