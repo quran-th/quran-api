@@ -447,6 +447,15 @@ export const ReciterSchema = z
     name: z.string().openapi({ example: "Mishari Rashid al-Afasy" }),
     arabicName: z.string().openapi({ example: "مشاري راشد العفاسي" }),
     style: z.string().openapi({ example: "Murattal" }),
+    rewayah: z
+      .object({
+        id: z.number().openapi({ example: 1 }),
+        name: z.string().openapi({ example: "Hafs 'an 'Asim" }),
+        arabicName: z.string().openapi({ example: "حفص عن عاصم" }),
+      })
+      .openapi({
+        description: "Recitation transmission (mp3quran rewayah id)",
+      }),
     hasWordTimings: z.boolean().openapi({
       description: "false = ayah-level timings only (no word highlight)",
     }),
