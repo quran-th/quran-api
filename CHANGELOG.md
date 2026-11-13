@@ -1,3 +1,18 @@
+# [1.21.0](https://github.com/quran-th/quran-api/compare/v1.20.1...v1.21.0) (2026-11-13)
+
+
+### Bug Fixes
+
+* pronounce แก่นบี as แก่นะบี in Thai translation audio ([418e533](https://github.com/quran-th/quran-api/commit/418e53357fc1c73647fb3cbab0d4ac72dfa904ce))
+* pronounce แก่นบี as แก่นะบี in Thai translation audio ([#17](https://github.com/quran-th/quran-api/issues/17)) ([9c4cae3](https://github.com/quran-th/quran-api/commit/9c4cae3650195329c9c98d35d0b4d8de5b7fa710))
+* proofread Thai Mukhtasar text in Al-Kahf and Juz 30 ([#18](https://github.com/quran-th/quran-api/issues/18)) ([2e41b58](https://github.com/quran-th/quran-api/commit/2e41b582207d74d03356fd956aebbf41f45f71fc))
+
+
+### Features
+
+* recheck translation audio timing against the local build in verify.mjs ([4ab0d9d](https://github.com/quran-th/quran-api/commit/4ab0d9d28393b4eed38d11ad493b23acbf4b8b19))
+* split long Thai translation audio into per-ayah files ([#19](https://github.com/quran-th/quran-api/issues/19)) ([93273d1](https://github.com/quran-th/quran-api/commit/93273d13654ef0196f535e8b96c45a65189cfc61))
+
 ## [1.20.1](https://github.com/quran-th/quran-api/compare/v1.20.0...v1.20.1) (2026-11-08)
 
 
