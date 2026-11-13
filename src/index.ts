@@ -14,6 +14,7 @@ import auth from "./routes/auth";
 import contributor from "./routes/contributor";
 import admin from "./routes/admin";
 import reports from "./routes/reports";
+import internal from "./routes/internal";
 
 import {
   ErrorSchema,
@@ -44,6 +45,7 @@ type Bindings = {
   CACHE: KVNamespace;
   ASSETS_BUCKET: R2Bucket;
   JWT_SECRET: string;
+  INTERNAL_KEY?: string;
   ASSETS_BASE_URL: string;
   TURNSTILE_SECRET_KEY: string;
   REVALIDATION_DAYS: string;
@@ -1322,6 +1324,7 @@ app.route("/auth", auth);
 app.route("/contributor", contributor);
 app.route("/admin", admin);
 app.route("/reports", reports);
+app.route("/internal", internal);
 
 // ─── OpenAPI spec + Swagger UI ────────────────────────────────────────────────
 // Register the bearer auth security scheme so it appears in the Swagger UI
