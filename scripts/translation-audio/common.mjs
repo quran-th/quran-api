@@ -12,6 +12,31 @@ export const setDir = (setId) => path.join(DATA_DIR, 'translation-audio', setId)
 export const sha256 = (s) => createHash('sha256').update(s).digest('hex')
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+export function limit(n) {
+  let active = 0
+  const queue = []
+  const next = () => {
+    if (active >= n || !queue.length) return
+    active++
+    const { task, resolve, reject } = queue.shift()
+    task().then(resolve, reject).finally(() => { active--; next() })
+  }
+  return (task) => new Promise((resolve, reject) => { queue.push({ task, resolve, reject }); next() })
+}
+
+// Asks the live API for the first surah it serves and reports whether the response has parts
+export async function apiServesParts(api, first = []) {
+  for (const s of new Set([...first, ...Array.from({ length: 114 }, (_, i) => i + 1)])) {
+    const res = await fetch(`${api}/translation-audio/${s}`).catch(() => null)
+    if (!res?.ok) continue
+    const { data } = await res.json()
+    return Array.isArray(data?.parts)
+      ? { ok: true, reason: `${api} serves parts (surah ${s})` }
+      : { ok: false, reason: `${api} serves surah ${s} without parts (a Worker from before parts)` }
+  }
+  return { ok: false, reason: `${api} serves no translation audio to check against` }
+}
+
 export function parseArgs(argv = process.argv.slice(2)) {
   const out = { _: [] }
   for (let i = 0; i < argv.length; i++) {

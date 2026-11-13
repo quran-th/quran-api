@@ -1154,8 +1154,9 @@ app.openapi(
 );
 
 // ─── GET /translation-audio/:chapter ─────────────────────────────────────────
-// Thai reading of the Al-Mukhtasar translation: one mp3 per surah plus per-ayah
-// offsets. `current.json` points at the active audio set; the mp3 is streamed
+// Thai reading of the Al-Mukhtasar translation: per surah one mp3, or for a long
+// surah one mp3 per ayah (parts), plus per-ayah offsets on the surah's absolute
+// timeline. `current.json` points at the active audio set; the mp3s are streamed
 // straight from the assets host, only the manifest passes through the Worker.
 
 const TRANSLATION_AUDIO_PREFIX = "translation-audio/mukhtasar-th";
@@ -1166,8 +1167,17 @@ interface TranslationAudioManifest {
   provider: string;
   model: string;
   voiceId: string;
+  audioPath?: string;
   durationMs: number;
-  ayahs: { ayah: number; startMs: number; endMs: number }[];
+  parts?: {
+    index: number;
+    audioPath: string;
+    startMs: number;
+    durationMs: number;
+    firstAyah: number;
+    lastAyah: number;
+  }[];
+  ayahs: { ayah: number; startMs: number; endMs: number; part?: number }[];
 }
 
 app.openapi(
@@ -1216,12 +1226,47 @@ app.openapi(
     );
     if (!manifestObj) return notFound();
     const manifest = await manifestObj.json<TranslationAudioManifest>();
-    // Rebuilt audio is uploaded under the same name, and Cloudflare's edge keeps serving the old
-    // bytes to range requests (how players stream), which then no longer match these offsets.
-    // The object's etag in the URL makes every rebuild a new cache key.
-    const audioKey = `${TRANSLATION_AUDIO_PREFIX}/${set}/${chapter}.mp3`;
-    const audioObj = await c.env.ASSETS_BUCKET.head(audioKey);
-    if (!audioObj) return notFound();
+    if (!manifest.ayahs.length) return notFound();
+    const base = `${TRANSLATION_AUDIO_PREFIX}/${set}/${chapter}`;
+    const wholeAsOnePart = (audioPath: string) => [
+      {
+        index: 0,
+        audioPath,
+        startMs: 0,
+        durationMs: manifest.durationMs,
+        firstAyah: manifest.ayahs[0].ayah,
+        lastAyah: manifest.ayahs[manifest.ayahs.length - 1].ayah,
+      },
+    ];
+    // Manifests from before parts describe one whole-surah file
+    let parts = manifest.parts ?? wholeAsOnePart(`${base}.mp3`);
+    const wholeKey = manifest.parts ? manifest.audioPath : `${base}.mp3`;
+
+    // Listing (not one head per part) keeps a 286-part surah within the
+    // Workers subrequest limit. `<chapter>.` holds the manifest and whole
+    // file, `<chapter>/` the per-ayah parts.
+    const keys = parts.map((p) => p.audioPath);
+    if (wholeKey) keys.push(wholeKey);
+    const etags = new Map<string, string>();
+    for (const prefix of [`${base}.`, `${base}/`]) {
+      if (!keys.some((k) => k.startsWith(prefix))) continue;
+      let cursor: string | undefined;
+      do {
+        const page = await c.env.ASSETS_BUCKET.list({ prefix, cursor });
+        for (const obj of page.objects) etags.set(obj.key, obj.etag);
+        cursor = page.truncated ? page.cursor : undefined;
+      } while (cursor);
+    }
+    // Missing parts with the whole file present: its offsets are the same absolute timeline
+    const partsMissing = parts.some((p) => !etags.has(p.audioPath));
+    if (partsMissing && !(wholeKey && etags.has(wholeKey))) return notFound();
+    if (partsMissing) parts = wholeAsOnePart(wholeKey!);
+    // Built audio is named by its content, but manifests from before that point at
+    // <chapter>.mp3, which a rebuild overwrote; Cloudflare's edge then kept serving the old
+    // bytes to range requests (how players stream). The etag in every URL makes each
+    // object version its own cache key.
+    const audioUrl = (key: string) =>
+      `${c.env.ASSETS_BASE_URL}/${key}?v=${etags.get(key)!.slice(0, 12)}`;
 
     c.header("Cache-Control", "public, max-age=300");
     return c.json(
@@ -1230,13 +1275,33 @@ app.openapi(
         data: {
           set,
           chapter,
-          audioUrl: `${c.env.ASSETS_BASE_URL}/${audioKey}?v=${audioObj.etag.slice(0, 12)}`,
+          ...(wholeKey && etags.has(wholeKey)
+            ? { audioUrl: audioUrl(wholeKey) }
+            : {}),
           durationMs: manifest.durationMs,
-          ayahs: manifest.ayahs.map(({ ayah, startMs, endMs }) => ({
+          ayahs: manifest.ayahs.map(({ ayah, startMs, endMs, part }) => ({
             ayah,
             startMs,
             endMs,
+            part: partsMissing ? 0 : (part ?? 0),
           })),
+          parts: parts.map(
+            ({
+              index,
+              audioPath,
+              startMs,
+              durationMs,
+              firstAyah,
+              lastAyah,
+            }) => ({
+              index,
+              audioUrl: audioUrl(audioPath),
+              startMs,
+              durationMs,
+              firstAyah,
+              lastAyah,
+            }),
+          ),
           voice: {
             provider: manifest.provider,
             model: manifest.model,
