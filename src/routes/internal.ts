@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { drizzle } from "drizzle-orm/d1";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { contributors } from "../db/schema";
 import { hashPassword } from "../utils/crypto";
 import { signToken } from "../utils/jwt";
@@ -123,6 +123,90 @@ internal.openapi(
         },
       },
       201,
+    );
+  },
+);
+
+const InternalPasswordBodySchema = z
+  .object({ password: z.string().min(8).max(200) })
+  .openapi("InternalPasswordBody");
+
+const InternalPasswordParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+internal.openapi(
+  createRoute({
+    method: "put",
+    path: "/contributors/{id}/password",
+    tags: ["Internal"],
+    summary:
+      "Set a contributor's password (service-to-service, X-Internal-Key)",
+    request: {
+      params: InternalPasswordParamsSchema,
+      body: {
+        content: {
+          "application/json": { schema: InternalPasswordBodySchema },
+        },
+        required: true,
+      },
+    },
+    responses: {
+      200: {
+        content: { "application/json": { schema: LoginResponseSchema } },
+        description: "Password set",
+      },
+      401: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Missing or invalid internal key",
+      },
+      404: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Contributor not found or inactive",
+      },
+    },
+  }),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
+    const db = drizzle(c.env.DB);
+
+    const [updated] = await db
+      .update(contributors)
+      .set({ passwordHash: await hashPassword(body.password) })
+      // Same rule as login: an inactive account must not get a token back.
+      .where(and(eq(contributors.id, id), eq(contributors.isActive, true)))
+      .returning();
+    if (!updated) {
+      return c.json(
+        {
+          success: false as const,
+          message: "Contributor not found or inactive",
+        },
+        404,
+      );
+    }
+
+    // Sign with the stored role so an admin who resets keeps admin rights.
+    const role: "admin" | "contributor" =
+      updated.role === "admin" ? "admin" : "contributor";
+    const token = await signToken(
+      { sub: updated.id, email: updated.email, role },
+      c.env.JWT_SECRET,
+    );
+
+    return c.json(
+      {
+        success: true as const,
+        token,
+        contributor: {
+          id: updated.id,
+          email: updated.email,
+          displayName: updated.displayName,
+          role,
+        },
+      },
+      200,
     );
   },
 );
