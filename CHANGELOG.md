@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/quran-th/quran-api/compare/v1.21.0...v1.22.0) (2026-11-14)
+
+
+### Features
+
+* add internal endpoint to set a contributor's password ([1932971](https://github.com/quran-th/quran-api/commit/19329715a642a7d8589be2f66ffe6175328c203b))
+
 # [1.21.0](https://github.com/quran-th/quran-api/compare/v1.20.1...v1.21.0) (2026-11-13)
 
 
