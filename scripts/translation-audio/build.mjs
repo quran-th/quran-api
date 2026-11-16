@@ -30,6 +30,13 @@ const execFileP = promisify(execFile)
 const surahNames = new Map([...(await readFile(new URL('../../src/data/surahs.ts', import.meta.url), 'utf8'))
   .matchAll(/id: (\d+),[\s\S]*?name_thai: "([^"]+)"/g)].map(([, id, name]) => [Number(id), name]))
 const YEAR = String(new Date().getFullYear())
+// The release of the quran-database text these clips were generated from. Read from the data
+// checkout's latest tag unless --db-version is given; a build without it would be untraceable.
+const dbVersion = (args['db-version'] && args['db-version'] !== true
+  ? String(args['db-version'])
+  : (await execFileP('git', ['-C', new URL('../../../quran-database', import.meta.url).pathname, 'describe', '--tags', '--abbrev=0', '--match', 'v*']).then((r) => r.stdout.trim(), () => '')))
+  .replace(/^v/, '')
+if (!/^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/.test(dbVersion)) throw new Error('quran-database release version not found; pass --db-version YYYY.MM.DD[.N]')
 // ID3v2.3 so Thai text shows in most players. The translation text belongs to Al-Mukhtasar;
 // the license only covers our recording. Model and voice details stay in the manifest.
 const id3Tags = (surah, ayah) => Object.entries({
@@ -42,7 +49,8 @@ const id3Tags = (surah, ayah) => Object.entries({
   language: 'tha',
   publisher: 'quran.in.th',
   date: YEAR,
-  comment: 'https://quran.in.th · คำแปลจากอัล-มุคตะศ็อร (mokhtasr.com) · เสียงสังเคราะห์ (AI)',
+  comment: `https://quran.in.th · คำแปลจากอัล-มุคตะศ็อร (mokhtasr.com) · quran-database ${dbVersion} · เสียงสังเคราะห์ (AI)`,
+  quran_database_version: dbVersion,
   copyright: `© ${YEAR} quran.in.th · CC BY-NC 4.0 · ข้อความคำแปลเป็นลิขสิทธิ์ของอัล-มุคตะศ็อร`,
 }).flatMap(([k, v]) => ['-metadata', `${k}=${v}`]).concat('-id3v2_version', '3')
 
@@ -58,7 +66,7 @@ const decode = async (file) => {
 const encode = (pcmFile, out, tags) => run('ffmpeg', ['-y', '-v', 'error', '-f', 's16le', '-ar', String(RATE), '-ac', '1', '-i', pcmFile, ...ENCODE_ARGS, ...tags, out])
 // Same PCM with the same encode settings and tags gives the same file, so it is not re-encoded.
 // The year is left out: a new year must not rename every part and bust every reader's cache.
-const encodeHashOf = (tags) => sha256(JSON.stringify([RATE, ENCODE_ARGS, tags.map((t) => t.replaceAll(YEAR, '{year}'))]))
+const encodeHashOf = (tags) => sha256(JSON.stringify([RATE, ENCODE_ARGS, tags.map((t) => t.replaceAll(YEAR, '{year}').replaceAll(dbVersion, '{dbVersion}'))]))
 const hash8 = async (file) => sha256(await readFile(file)).slice(0, 8)
 const silence = (ms) => { const samples = Math.round((ms * RATE) / 1000); return { samples, pcm: Buffer.alloc(samples * 2) } }
 const lead = silence(leadMs)
