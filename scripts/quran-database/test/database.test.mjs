@@ -136,7 +136,7 @@ test("release only prints the steps for the data checkout", () => {
   const zip = join(db, "out", "quran-database-2026.11.20.zip");
   assert.ok(
     lines.includes(
-      `mkdir -p ${join(db, "out")} && git -C ${db} archive --format=zip -9 --prefix=quran-database-2026.11.20/ -o ${zip} v2026.11.20 data/`,
+      `node ${join(db, "scripts/bundle.mjs")} --version 2026.11.20 --out ${join(db, "out")} && (cd ${join(db, "out")} && rm -f quran-database-2026.11.20.zip && zip -qrX quran-database-2026.11.20.zip quran-database-2026.11.20)`,
     ),
   );
   assert.ok(

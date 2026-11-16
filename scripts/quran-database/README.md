@@ -38,17 +38,18 @@ git -C ../quran-database status --short    # review data/, changes/, releases/<v
 git -C ../quran-database add data changes releases CHANGELOG.md
 git -C ../quran-database commit -m "Release 2026.11.14"
 git -C ../quran-database tag v2026.11.14
-mkdir -p ../quran-database/out && git -C ../quran-database archive --format=zip -9 \
-  --prefix=quran-database-2026.11.14/ -o ../quran-database/out/quran-database-2026.11.14.zip v2026.11.14 data/
+node ../quran-database/scripts/bundle.mjs --version 2026.11.14 --out ../quran-database/out \
+  && (cd ../quran-database/out && rm -f quran-database-2026.11.14.zip && zip -qrX quran-database-2026.11.14.zip quran-database-2026.11.14)
 gh release upload v2026.11.14 ../quran-database/out/quran-database-2026.11.14.zip --repo quran-th/quran-database
 ```
 
 1. Read `releases/<version>.md` before committing: every change beyond spelling is listed there.
    Use `overrides.csv` to annotate or reclassify a change, then export again.
 2. Pushing the commit and tag, and creating the GitHub release, are separate, manual steps. Nothing
-   here pushes. Upload the zip after the GitHub release exists. It is the release asset: `data/` as
-   tagged (each `<slug>.csv` with its `.meta.json`) under `quran-database-<version>/`, written to the
-   git-ignored `out/` of the data checkout.
+   here pushes. Upload the zip after the GitHub release exists. It is the release asset:
+   `quran-database-<version>/data/<slug>.csv` (all surahs joined by the data repository's
+   `scripts/bundle.mjs`, which checks it against `meta.json`'s `sha256`) and `<slug>.meta.json`,
+   built in the git-ignored `out/` of the data checkout.
 3. If `overrides.csv` had rows, empty it (keep the header) and commit that in quran-api.
 
 ### What the export does
@@ -64,7 +65,9 @@ gh release upload v2026.11.14 ../quran-database/out/quran-database-2026.11.14.zi
    - every `(*n*)` marker has footnote `n` and every footnote has a marker
      (`--allow-footnote-mismatch` publishes them and lists them in `meta.json`);
    - footnote numbers unique and in 1..99, no empty footnote.
-3. Builds every file in memory, then writes them: `data/<slug>.csv` + `.meta.json`, the diff
+3. Builds every file in memory, then writes them: one canonical CSV per surah,
+   `data/<slug>/001.csv` … `114.csv` (each with the header), and `data/<slug>.meta.json`, whose
+   `sha256` covers the whole translation joined into one CSV; the diff
    against the previous release as `changes/<version>.csv` and `releases/<version>.md` (after
    `overrides.csv` is applied), and the `CHANGELOG.md` section.
 
@@ -155,7 +158,11 @@ king-fahd,14,49,1,spelling,
 
 Exits non-zero on any problem:
 
-- `data/` holds only `<slug>.csv` + `<slug>.meta.json` pairs.
+- `data/` holds only `<slug>/` folders and `<slug>.meta.json` files; a leftover `<slug>.csv` from
+  the old single-file layout is reported. An export over that layout reads it as the baseline and
+  removes it.
+- Surah files: only `NNN.csv`, each in canonical form on its own, every row in the file named by
+  its surah. The files are joined (header once) and the joined text is checked as below.
 - Canonical CSV: strict RFC 4180 parse (no bare quotes, unterminated fields, unequal field counts,
   BOM or missing final newline); mushaf order with each verse row before its ascending footnotes;
   contiguous ayat and 114/6236; byte-identical to the canonical writer's output; counts, `sha256`,

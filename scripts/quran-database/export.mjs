@@ -127,7 +127,7 @@ async function main() {
   writeRelease(rootDir, files);
   printReport(reports);
   console.log(
-    `wrote ${Object.keys(files).length} files for release ${values.version}`,
+    `wrote ${Object.values(files).filter((content) => content !== null).length} files and removed ${Object.values(files).filter((content) => content === null).length} for release ${values.version}`,
   );
 }
 

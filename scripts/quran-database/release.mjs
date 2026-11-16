@@ -75,10 +75,12 @@ console.log(
   `git -C ${dbDir} add data changes releases CHANGELOG.md && git -C ${dbDir} commit -m "Release ${version}"`,
 );
 console.log(`git -C ${dbDir} tag v${version}`);
-// out/ is git-ignored in the data checkout; the zip holds data/ exactly as tagged.
-const zip = join(dbDir, "out", `quran-database-${version}.zip`);
+// The release asset: data/<slug>.csv (all surahs joined, checked against meta.json sha256) and
+// <slug>.meta.json under quran-database-<version>/, built in the git-ignored out/ of the data checkout.
+const outDir = join(dbDir, "out");
+const zip = join(outDir, `quran-database-${version}.zip`);
 console.log(
-  `mkdir -p ${join(dbDir, "out")} && git -C ${dbDir} archive --format=zip -9 --prefix=quran-database-${version}/ -o ${zip} v${version} data/`,
+  `node ${join(dbDir, "scripts/bundle.mjs")} --version ${version} --out ${outDir} && (cd ${outDir} && rm -f quran-database-${version}.zip && zip -qrX quran-database-${version}.zip quran-database-${version})`,
 );
 console.log(
   `# after pushing the commit and tag and creating the GitHub release v${version}:`,

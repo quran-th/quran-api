@@ -3,13 +3,16 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   embeddedLineBreaks,
   formatCanonicalRows,
+  joinSurahTexts,
   parseCanonicalRows,
+  splitCanonicalRows,
   toCanonicalRows,
 } from "./canonical.mjs";
 import { renderSection, upsertSection } from "./changelog.mjs";
@@ -21,10 +24,11 @@ import {
 } from "./diff.mjs";
 import {
   buildMetadata,
-  csvPath,
   formatMetadata,
+  legacyCsvPath,
   metaPath,
   slugFor,
+  surahDir,
 } from "./metadata.mjs";
 import {
   analyzeChange,
@@ -72,6 +76,31 @@ export function compareVersions(a, b) {
 
 const readText = (path) => readFileSync(path, "utf8");
 
+const SURAH_FILE = /^\d{3}\.csv$/;
+
+/** Names of the surah files in data/<slug>/, sorted (mushaf order); empty when the folder is missing. */
+export function surahFileNames(rootDir, slug) {
+  const dir = join(rootDir, surahDir(slug));
+  return existsSync(dir)
+    ? readdirSync(dir)
+        .filter((name) => SURAH_FILE.test(name))
+        .sort()
+    : [];
+}
+
+/**
+ * The published canonical CSV of one source as a single text: data/<slug>/NNN.csv joined, or the
+ * older single data/<slug>.csv when the surah folder does not exist yet.
+ */
+export function readPublishedCsv(rootDir, slug) {
+  const names = surahFileNames(rootDir, slug);
+  if (names.length)
+    return joinSurahTexts(
+      names.map((name) => readText(join(rootDir, surahDir(slug), name))),
+    );
+  return readText(join(rootDir, legacyCsvPath(slug)));
+}
+
 /**
  * The baseline for version V is the release before V, as canonical rows. When data/ already holds
  * V (a re-run), V's own change rows are reverted so the re-run reproduces the same diff.
@@ -81,7 +110,7 @@ export function readBaseline(rootDir, slug, version) {
   if (!existsSync(metadataFile))
     return { baseline: null, previousVersion: null };
   const metadata = JSON.parse(readText(metadataFile));
-  const rows = parseCanonicalRows(readText(join(rootDir, csvPath(slug))));
+  const rows = parseCanonicalRows(readPublishedCsv(rootDir, slug));
   if (metadata.version !== version) {
     if (compareVersions(version, metadata.version) < 0) {
       throw new ExportError([
@@ -198,7 +227,13 @@ export function buildRelease({
       emptyTranslations,
       embeddedLineBreaks: lineBreaks,
     });
-    files[csvPath(slug)] = csv;
+    const surahFiles = splitCanonicalRows(rows);
+    for (const [name, text] of surahFiles)
+      files[`${surahDir(slug)}/${name}`] = text;
+    for (const name of surahFileNames(rootDir, slug))
+      if (!surahFiles.has(name)) files[`${surahDir(slug)}/${name}`] = null;
+    if (existsSync(join(rootDir, legacyCsvPath(slug))))
+      files[legacyCsvPath(slug)] = null;
     files[metaPath(slug)] = formatMetadata(metadata);
     const diff = diffSource(slug, baseline, rows);
     entries.push({
@@ -259,9 +294,14 @@ export function buildRelease({
   return { files, reports };
 }
 
+/** Writes every file; a null content removes that file (a surah file or the old single CSV). */
 export function writeRelease(rootDir, files) {
   for (const [path, content] of Object.entries(files)) {
     const target = join(rootDir, path);
+    if (content === null) {
+      rmSync(target, { force: true });
+      continue;
+    }
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, content);
   }

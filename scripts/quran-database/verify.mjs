@@ -14,7 +14,10 @@ import {
   embeddedLineBreaks,
   formatCanonical,
   formatCanonicalRows,
+  joinSurahTexts,
   parseCanonical,
+  parseCanonicalRows,
+  surahFileName,
   toCanonicalRows,
 } from "./lib/canonical.mjs";
 import {
@@ -23,7 +26,12 @@ import {
   resolveDatabaseDir,
 } from "./lib/database.mjs";
 import { parseChanges } from "./lib/diff.mjs";
-import { csvPath, metaPath, sha256 } from "./lib/metadata.mjs";
+import {
+  legacyCsvPath,
+  metaPath,
+  sha256,
+  surahDir,
+} from "./lib/metadata.mjs";
 import { parseOverrides } from "./lib/notes.mjs";
 import { EXPECTED_COUNTS, validateSource } from "./lib/validate.mjs";
 
@@ -184,6 +192,50 @@ function checkJson(text, verses, csv, meta, fail) {
     fail("round trip canonical -> json -> canonical differs");
 }
 
+const SURAH_FILE = /^\d{3}\.csv$/;
+
+/**
+ * Checks data/<slug>/NNN.csv one by one (name, canonical form, every row in its own surah's file)
+ * and returns the joined whole-translation CSV, or null when the files cannot be joined.
+ */
+function readSurahFiles(rootDir, slug, fail) {
+  const dir = surahDir(slug);
+  const names = readdirSync(join(rootDir, dir)).sort();
+  for (const name of names)
+    if (!SURAH_FILE.test(name))
+      fail(`${dir}/${name} is not a surah file (NNN.csv)`);
+  const surahNames = names.filter((name) => SURAH_FILE.test(name));
+  if (surahNames.length === 0) {
+    fail(`${dir} has no surah files`);
+    return null;
+  }
+  const texts = surahNames.map((name) => {
+    const text = readFileSync(join(rootDir, dir, name), "utf8");
+    try {
+      const rows = parseCanonicalRows(text);
+      if (rows.length === 0) fail(`${dir}/${name} has no rows`);
+      const stray = rows.find((row) => surahFileName(row.surah) !== name);
+      if (stray)
+        fail(
+          `${dir}/${name} holds a row of surah ${stray.surah} (${stray.surah}:${stray.ayah})`,
+        );
+      if (formatCanonicalRows(rows) !== text)
+        fail(
+          `${dir}/${name} is not in canonical form (quoting, order or line endings)`,
+        );
+    } catch (error) {
+      fail(`${dir}/${name}: ${error.message}`);
+    }
+    return text;
+  });
+  try {
+    return joinSurahTexts(texts);
+  } catch (error) {
+    fail(`${dir}: ${error.message}`);
+    return null;
+  }
+}
+
 /**
  * `converted` is the data repository's converter output ({ outDir, lib }), or null when the
  * converter could not run.
@@ -200,11 +252,12 @@ export function verifySource(
   const meta = JSON.parse(readFileSync(join(rootDir, metaPath(slug)), "utf8"));
   if (meta.source?.slug !== slug)
     fail(`meta.json source.slug is ${meta.source?.slug}`);
-  const csv = readFileSync(join(rootDir, csvPath(slug)), "utf8");
+  const csv = readSurahFiles(rootDir, slug, fail);
+  if (csv === null) return problems;
   const actualHash = sha256(csv);
   if (actualHash !== meta.sha256)
     fail(
-      `sha256 of ${csvPath(slug)} is ${actualHash}, meta.json says ${meta.sha256}`,
+      `sha256 of the joined ${surahDir(slug)}/*.csv is ${actualHash}, meta.json says ${meta.sha256}`,
     );
 
   let verses;
@@ -336,18 +389,20 @@ export async function verifyRepository(
     .filter((entry) => entry.isFile() && entry.name.endsWith(".meta.json"))
     .map((entry) => entry.name.slice(0, -".meta.json".length))
     .sort();
-  const allowed = new Set(
-    slugs.flatMap((slug) => [`${slug}.csv`, `${slug}.meta.json`]),
-  );
   for (const entry of entries) {
-    if (!entry.isFile() || !allowed.has(entry.name))
-      problems.push(
-        `data/${entry.name} is not part of a <slug>.csv + <slug>.meta.json pair`,
-      );
+    const slug = entry.name.replace(/\.csv$/, "");
+    if (entry.isFile() && entry.name.endsWith(".meta.json")) continue;
+    if (entry.isDirectory() && slugs.includes(entry.name)) continue;
+    problems.push(
+      entry.isFile() && slugs.includes(slug)
+        ? `${legacyCsvPath(slug)} is the old single-file layout; ${surahDir(slug)}/NNN.csv replaces it`
+        : `data/${entry.name} is not a <slug>/ folder or <slug>.meta.json`,
+    );
   }
+  const hasSurahDir = (slug) =>
+    entries.some((entry) => entry.isDirectory() && entry.name === slug);
   for (const slug of slugs)
-    if (!existsSync(join(rootDir, csvPath(slug))))
-      problems.push(`${csvPath(slug)} is missing`);
+    if (!hasSurahDir(slug)) problems.push(`${surahDir(slug)}/ is missing`);
   if (slugs.length === 0) problems.push("no data/<slug>.meta.json found");
   const changelog = existsSync(join(rootDir, "CHANGELOG.md"))
     ? readFileSync(join(rootDir, "CHANGELOG.md"), "utf8")
@@ -355,7 +410,7 @@ export async function verifyRepository(
   const converted =
     slugs.length > 0 ? await runConverter(rootDir, slugs, problems) : null;
   for (const slug of slugs) {
-    if (!existsSync(join(rootDir, csvPath(slug)))) continue;
+    if (!hasSurahDir(slug)) continue;
     problems.push(
       ...verifySource(
         rootDir,

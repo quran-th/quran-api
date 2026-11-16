@@ -47,6 +47,45 @@ export function formatCanonicalRows(rows) {
 export const formatCanonical = (verses) =>
   formatCanonicalRows(toCanonicalRows(verses));
 
+/** "002.csv" for surah 2: zero-padded so the files sort in mushaf order. */
+export const surahFileName = (surah) =>
+  `${String(surah).padStart(3, "0")}.csv`;
+
+/** Canonical rows (mushaf order) to one canonical CSV per surah, keyed by file name. */
+export function splitCanonicalRows(rows) {
+  const bySurah = new Map();
+  for (const row of rows) {
+    const name = surahFileName(row.surah);
+    bySurah.set(name, [...(bySurah.get(name) ?? []), row]);
+  }
+  return new Map(
+    [...bySurah].map(([name, surahRows]) => [
+      name,
+      formatCanonicalRows(surahRows),
+    ]),
+  );
+}
+
+/**
+ * Surah files in order to the whole canonical CSV: the header once, then each file's rows.
+ * Throws when a file does not start with the canonical header.
+ */
+export function joinSurahTexts(texts) {
+  const header = formatCsv([CANONICAL_HEADER]);
+  return (
+    header +
+    texts
+      .map((text, index) => {
+        if (!text.startsWith(header))
+          throw new Error(
+            `surah file ${index + 1} does not start with the header ${header.trim()}`,
+          );
+        return text.slice(header.length);
+      })
+      .join("")
+  );
+}
+
 const toInt = (value, what, line) => {
   if (!/^[1-9]\d*$/.test(value))
     throw new Error(
