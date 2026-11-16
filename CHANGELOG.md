@@ -1,3 +1,9 @@
+## [1.22.1](https://github.com/quran-th/quran-api/compare/v1.22.0...v1.22.1) (2026-11-16)
+
+### Bug Fixes
+
+* pronounce Salih and Thamud in Arabic and ʿĀd as อ๊าด in Thai translation audio ([f0c2d1a](https://github.com/quran-th/quran-api/commit/f0c2d1af7e7519ee6e44e02c400799a9218dd2ea))
+
 # [1.22.0](https://github.com/quran-th/quran-api/compare/v1.21.0...v1.22.0) (2026-11-14)
 
 
