@@ -38,11 +38,17 @@ git -C ../quran-database status --short    # review data/, changes/, releases/<v
 git -C ../quran-database add data changes releases CHANGELOG.md
 git -C ../quran-database commit -m "Release 2026.11.14"
 git -C ../quran-database tag v2026.11.14
+mkdir -p ../quran-database/out && git -C ../quran-database archive --format=zip -9 \
+  --prefix=quran-database-2026.11.14/ -o ../quran-database/out/quran-database-2026.11.14.zip v2026.11.14 data/
+gh release upload v2026.11.14 ../quran-database/out/quran-database-2026.11.14.zip --repo quran-th/quran-database
 ```
 
 1. Read `releases/<version>.md` before committing: every change beyond spelling is listed there.
    Use `overrides.csv` to annotate or reclassify a change, then export again.
-2. Pushing the commit and tag is a separate, manual step. Nothing here pushes.
+2. Pushing the commit and tag, and creating the GitHub release, are separate, manual steps. Nothing
+   here pushes. Upload the zip after the GitHub release exists. It is the release asset: `data/` as
+   tagged (each `<slug>.csv` with its `.meta.json`) under `quran-database-<version>/`, written to the
+   git-ignored `out/` of the data checkout.
 3. If `overrides.csv` had rows, empty it (keep the header) and commit that in quran-api.
 
 ### What the export does

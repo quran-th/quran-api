@@ -1,6 +1,6 @@
 // Prints the release commands; it runs nothing except a read-only `git tag --list` in the data checkout.
 import { execFileSync } from "node:child_process";
-import { relative } from "node:path";
+import { join, relative } from "node:path";
 import {
   API_ROOT,
   OVERRIDES_FILE,
@@ -75,6 +75,17 @@ console.log(
   `git -C ${dbDir} add data changes releases CHANGELOG.md && git -C ${dbDir} commit -m "Release ${version}"`,
 );
 console.log(`git -C ${dbDir} tag v${version}`);
+// out/ is git-ignored in the data checkout; the zip holds data/ exactly as tagged.
+const zip = join(dbDir, "out", `quran-database-${version}.zip`);
+console.log(
+  `mkdir -p ${join(dbDir, "out")} && git -C ${dbDir} archive --format=zip -9 --prefix=quran-database-${version}/ -o ${zip} v${version} data/`,
+);
+console.log(
+  `# after pushing the commit and tag and creating the GitHub release v${version}:`,
+);
+console.log(
+  `gh release upload v${version} ${zip} --repo quran-th/quran-database`,
+);
 console.log(
   `# then empty ${relative(API_ROOT, OVERRIDES_FILE)} (keep the header line) and commit that in quran-api`,
 );

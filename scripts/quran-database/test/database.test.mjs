@@ -133,6 +133,17 @@ test("release only prints the steps for the data checkout", () => {
     `npm run db:verify -- --db ${db}`,
   ]);
   assert.ok(lines.includes(`git -C ${db} tag v2026.11.20`));
+  const zip = join(db, "out", "quran-database-2026.11.20.zip");
+  assert.ok(
+    lines.includes(
+      `mkdir -p ${join(db, "out")} && git -C ${db} archive --format=zip -9 --prefix=quran-database-2026.11.20/ -o ${zip} v2026.11.20 data/`,
+    ),
+  );
+  assert.ok(
+    lines.includes(
+      `gh release upload v2026.11.20 ${zip} --repo quran-th/quran-database`,
+    ),
+  );
   assert.match(lines.at(-1), /empty scripts\/quran-database\/overrides\.csv/);
   assert.equal(
     execFileSync("git", ["-C", db, "status", "--porcelain"], {
