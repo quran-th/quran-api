@@ -1,3 +1,17 @@
+# [1.23.0](https://github.com/quran-th/quran-api/compare/v1.22.1...v1.23.0) (2026-11-16)
+
+### Bug Fixes
+
+* pronounce Salih, Thamud, Ad, Shawwal and a few more words correctly in Thai translation audio ([91bd9e7](https://github.com/quran-th/quran-api/commit/91bd9e7119ead2a91acc827774a5119a8dd20798))
+* pronounce ญิน as Jin and กัมปนาท as กำปะนาด in Thai translation audio ([31029f9](https://github.com/quran-th/quran-api/commit/31029f9c568ee82e4cf7207363ed1fc2f85e70d1))
+* restore missing เขา in 67:12, 68:25, 7:38 and 76:17 translations ([8b81b77](https://github.com/quran-th/quran-api/commit/8b81b77d173de3dd134d4ecc428c51994b3eece2))
+* stop overriding ญิน as Jin in Thai translation audio ([835c495](https://github.com/quran-th/quran-api/commit/835c49550fe7aa2a12f7db4dbb7110d09928c896))
+
+### Features
+
+* return each reciter's rewayah from /reciters ([76531d8](https://github.com/quran-th/quran-api/commit/76531d8cd9014bca10b16ffcdf865569c56f0bf3))
+* tag Thai translation audio with title, album, credit and CC BY-NC 4.0 ([b597e5a](https://github.com/quran-th/quran-api/commit/b597e5a5cbe2134fbee8ec2fd89c98681755c375))
+
 ## [1.22.1](https://github.com/quran-th/quran-api/compare/v1.22.0...v1.22.1) (2026-11-16)
 
 ### Bug Fixes
