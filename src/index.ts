@@ -7,7 +7,7 @@ import { quranTranslations, translationSources } from "./db/schema";
 
 import { surahs } from "./data/surahs";
 import { juzs } from "./data/juzs";
-import { reciters, DEFAULT_RECITER_ID } from "./data/reciters";
+import { reciters, riwayat, DEFAULT_RECITER_ID } from "./data/reciters";
 import { revalidateExternalSource } from "./services/revalidation";
 import { cleanMokhtasrText } from "./services/mokhtasr";
 import auth from "./routes/auth";
@@ -876,11 +876,12 @@ app.openapi(
       {
         success: true as const,
         data: reciters.map(
-          ({ id, name, arabicName, style, hasWordTimings }) => ({
+          ({ id, name, arabicName, style, rewayahId, hasWordTimings }) => ({
             id,
             name,
             arabicName,
             style,
+            rewayah: { id: rewayahId, ...riwayat[rewayahId] },
             hasWordTimings,
           }),
         ),
