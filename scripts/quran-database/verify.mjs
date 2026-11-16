@@ -56,18 +56,18 @@ function checkOrder(verses, expected, fail) {
   verses.forEach((verse, index) => {
     const previous = verses[index - 1];
     const contiguous =
-      previous && previous.sura === verse.sura
-        ? verse.aya === previous.aya + 1
-        : verse.aya === 1 && (!previous || verse.sura > previous.sura);
+      previous && previous.surah === verse.surah
+        ? verse.ayah === previous.ayah + 1
+        : verse.ayah === 1 && (!previous || verse.surah > previous.surah);
     if (!contiguous)
-      fail(`CSV verse ${verse.sura}:${verse.aya} breaks mushaf order`);
+      fail(`CSV verse ${verse.surah}:${verse.ayah} breaks mushaf order`);
   });
-  const suras = [...new Set(verses.map((verse) => verse.sura))];
-  if (suras.length !== expected.surahs)
-    fail(`CSV has ${suras.length} surahs, expected ${expected.surahs}`);
+  const surahNumbers = [...new Set(verses.map((verse) => verse.surah))];
+  if (surahNumbers.length !== expected.surahs)
+    fail(`CSV has ${surahNumbers.length} surahs, expected ${expected.surahs}`);
   if (
     expected.contiguousSurahs !== false &&
-    suras.some((sura, index) => sura !== index + 1)
+    surahNumbers.some((surah, index) => surah !== index + 1)
   )
     fail("CSV surahs are not 1..N");
   if (verses.length !== expected.verses)
@@ -83,13 +83,13 @@ function checkQuranEnc(text, verses, lib, fail) {
     if (!record) return;
     const expected = {
       id: String(index + 1),
-      sura: String(verse.sura),
-      aya: String(verse.aya),
+      sura: String(verse.surah),
+      aya: String(verse.ayah),
       translation: verse.translation,
       footnotes: lib.quranEncFootnotes(verse.footnotes),
     };
     if (!isDeepStrictEqual(record, expected))
-      fail(`quranenc row ${index + 2} differs from ${verse.sura}:${verse.aya}`);
+      fail(`quranenc row ${index + 2} differs from ${verse.surah}:${verse.ayah}`);
   });
 }
 
@@ -108,10 +108,10 @@ function checkTanzil(text, verses, meta, lib, fail) {
   verses.forEach((verse, index) => {
     const line = tanzil.verses[index];
     if (!line) return;
-    if (line.sura !== verse.sura || line.aya !== verse.aya)
-      fail(`tanzil line ${index + 1} is ${line.sura}|${line.aya}`);
+    if (line.surah !== verse.surah || line.ayah !== verse.ayah)
+      fail(`tanzil line ${index + 1} is ${line.surah}|${line.ayah}`);
     if (line.text !== lib.tanzilText(verse.translation).text)
-      fail(`tanzil ${verse.sura}:${verse.aya} text differs from the CSV`);
+      fail(`tanzil ${verse.surah}:${verse.ayah} text differs from the CSV`);
   });
   if (
     tanzil.trailer.length !== 10 ||
@@ -133,7 +133,7 @@ function checkQuranCom(text, verses, meta, lib, fail) {
     );
   verses.forEach((verse, index) => {
     const item = document.translations?.[index];
-    const ref = `${verse.sura}:${verse.aya}`;
+    const ref = `${verse.surah}:${verse.ayah}`;
     if (!item) return;
     if (item.verse_key !== ref || item.resource_id !== sourceId)
       fail(
@@ -143,7 +143,7 @@ function checkQuranCom(text, verses, meta, lib, fail) {
       fail(`quran-com ${ref} text does not restore to the CSV text`);
     const expectedNotes = Object.fromEntries(
       verse.footnotes.map((note) => [
-        String(lib.footnoteId(sourceId, verse.sura, verse.aya, note.number)),
+        String(lib.footnoteId(sourceId, verse.surah, verse.ayah, note.number)),
         note.text,
       ]),
     );
@@ -152,7 +152,7 @@ function checkQuranCom(text, verses, meta, lib, fail) {
     for (const sup of lib.supFootnoteIds(item.text)) {
       if (
         sup.id !==
-          lib.footnoteId(sourceId, verse.sura, verse.aya, sup.number) ||
+          lib.footnoteId(sourceId, verse.surah, verse.ayah, sup.number) ||
         !(String(sup.id) in item.foot_notes)
       )
         fail(`quran-com ${ref} has a dangling <sup foot_note=${sup.id}>`);
@@ -172,10 +172,10 @@ function checkJson(text, verses, csv, meta, fail) {
   if (keys.length !== verses.length)
     fail(`JSON has ${keys.length} verses, expected ${verses.length}`);
   const back = keys.map((key) => {
-    const [sura, aya] = key.split(":").map(Number);
+    const [surah, ayah] = key.split(":").map(Number);
     return {
-      sura,
-      aya,
+      surah,
+      ayah,
       translation: document.verses[key].translation,
       footnotes: document.verses[key].footnotes,
     };
@@ -229,9 +229,9 @@ export function verifySource(
     );
   if (!isDeepStrictEqual(embeddedLineBreaks(verses), meta.embeddedLineBreaks))
     fail("embeddedLineBreaks differs from the CSV");
-  const surahs = [...new Set(verses.map((verse) => verse.sura))].map((id) => {
+  const surahs = [...new Set(verses.map((verse) => verse.surah))].map((id) => {
     const surahVerses = verses
-      .filter((verse) => verse.sura === id)
+      .filter((verse) => verse.surah === id)
       .map((verse) => ({ ...verse, arabic: "-" }));
     return { id, versesCount: surahVerses.length, verses: surahVerses };
   });

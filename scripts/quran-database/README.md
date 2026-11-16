@@ -130,7 +130,7 @@ committed. Re-running on the same machine reproduces them byte for byte.
 ### Overrides: `overrides.csv`
 
 ```
-source,sura,aya,footnote,class,note
+source,surah,ayah,footnote,class,note
 king-fahd,2,197,,,แก้ให้ตรงกับต้นฉบับภาษาอาหรับ
 king-fahd,14,49,1,spelling,
 ```

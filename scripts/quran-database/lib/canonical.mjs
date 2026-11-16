@@ -1,18 +1,18 @@
 import { formatCsv, parseCsvObjects } from "./csv.mjs";
 
-export const CANONICAL_HEADER = ["sura", "aya", "footnote", "text"];
+export const CANONICAL_HEADER = ["surah", "ayah", "footnote", "text"];
 
-/** Row key "sura:aya" for a verse row, "sura:aya:n" for its footnote n. */
+/** Row key "surah:ayah" for a verse row, "surah:ayah:n" for its footnote n. */
 export const rowKey = (row) =>
   row.footnote === ""
-    ? `${row.sura}:${row.aya}`
-    : `${row.sura}:${row.aya}:${row.footnote}`;
+    ? `${row.surah}:${row.ayah}`
+    : `${row.surah}:${row.ayah}:${row.footnote}`;
 
 export function compareRows(a, b) {
   const footnote = (row) => (row.footnote === "" ? 0 : Number(row.footnote));
   return (
-    Number(a.sura) - Number(b.sura) ||
-    Number(a.aya) - Number(b.aya) ||
+    Number(a.surah) - Number(b.surah) ||
+    Number(a.ayah) - Number(b.ayah) ||
     footnote(a) - footnote(b)
   );
 }
@@ -21,16 +21,16 @@ export function compareRows(a, b) {
 export function toCanonicalRows(verses) {
   return verses.flatMap((verse) => [
     {
-      sura: String(verse.sura),
-      aya: String(verse.aya),
+      surah: String(verse.surah),
+      ayah: String(verse.ayah),
       footnote: "",
       text: verse.translation,
     },
     ...[...verse.footnotes]
       .sort((a, b) => a.number - b.number)
       .map((note) => ({
-        sura: String(verse.sura),
-        aya: String(verse.aya),
+        surah: String(verse.surah),
+        ayah: String(verse.ayah),
         footnote: String(note.number),
         text: note.text,
       })),
@@ -40,7 +40,7 @@ export function toCanonicalRows(verses) {
 export function formatCanonicalRows(rows) {
   return formatCsv([
     CANONICAL_HEADER,
-    ...rows.map((row) => [row.sura, row.aya, row.footnote, row.text]),
+    ...rows.map((row) => [row.surah, row.ayah, row.footnote, row.text]),
   ]);
 }
 
@@ -61,37 +61,37 @@ export function parseCanonicalRows(text) {
 
 /**
  * Strict reader: rows must be in mushaf order, every footnote row must follow its own verse row,
- * and footnote numbers must ascend within a verse. Aya contiguity is the verifier's job.
- * @returns {{ sura: number, aya: number, translation: string, footnotes: { number: number, text: string }[] }[]}
+ * and footnote numbers must ascend within a verse. Ayah contiguity is the verifier's job.
+ * @returns {{ surah: number, ayah: number, translation: string, footnotes: { number: number, text: string }[] }[]}
  */
 export function rowsToVerses(rows) {
   const verses = [];
   rows.forEach((row, index) => {
     const line = index + 2;
-    const sura = toInt(row.sura, "sura", line);
-    const aya = toInt(row.aya, "aya", line);
+    const surah = toInt(row.surah, "surah", line);
+    const ayah = toInt(row.ayah, "ayah", line);
     const last = verses.at(-1);
     if (row.footnote === "") {
       if (
         last &&
-        (sura < last.sura || (sura === last.sura && aya <= last.aya))
+        (surah < last.surah || (surah === last.surah && ayah <= last.ayah))
       ) {
         throw new Error(
-          `row ${line}: verse ${sura}:${aya} breaks mushaf order after ${last.sura}:${last.aya}`,
+          `row ${line}: verse ${surah}:${ayah} breaks mushaf order after ${last.surah}:${last.ayah}`,
         );
       }
-      verses.push({ sura, aya, translation: row.text, footnotes: [] });
+      verses.push({ surah, ayah, translation: row.text, footnotes: [] });
       return;
     }
     const number = toInt(row.footnote, "footnote", line);
-    if (!last || last.sura !== sura || last.aya !== aya)
+    if (!last || last.surah !== surah || last.ayah !== ayah)
       throw new Error(
-        `row ${line}: footnote ${sura}:${aya}:${number} does not follow its verse row`,
+        `row ${line}: footnote ${surah}:${ayah}:${number} does not follow its verse row`,
       );
     const previous = last.footnotes.at(-1);
     if (previous && number <= previous.number)
       throw new Error(
-        `row ${line}: footnote ${sura}:${aya}:${number} is not ascending`,
+        `row ${line}: footnote ${surah}:${ayah}:${number} is not ascending`,
       );
     last.footnotes.push({ number, text: row.text });
   });

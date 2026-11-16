@@ -91,7 +91,7 @@ function addConverter(rootDir) {
 
 const headerOnlyOverrides = () => {
   const file = join(tempRoot(), "overrides.csv");
-  writeFileSync(file, "source,sura,aya,footnote,class,note\n");
+  writeFileSync(file, "source,surah,ayah,footnote,class,note\n");
   return file;
 };
 
@@ -103,10 +103,10 @@ const verify = async (root) =>
     })
   ).problems;
 
-const findVerse = (input, sourceId, sura, aya) =>
+const findVerse = (input, sourceId, surah, ayah) =>
   input.surahsBySource[sourceId]
-    .find((surah) => surah.id === sura)
-    .verses.find((verse) => verse.aya === aya);
+    .find((entry) => entry.id === surah)
+    .verses.find((verse) => verse.ayah === ayah);
 
 const read = (root, path) => readFileSync(join(root, path), "utf8");
 
@@ -163,7 +163,7 @@ test("exports write only the canonical CSV + meta per source and are byte-identi
   }
   assert.equal(
     read(first, "changes/2026.11.14.csv"),
-    "source,sura,aya,footnote,old,new\n",
+    "source,surah,ayah,footnote,old,new\n",
   );
   assert.match(
     read(first, "CHANGELOG.md"),
@@ -181,7 +181,7 @@ test("canonical CSV and meta hold the stored text losslessly and record line bre
   const csv = read(root, "data/king-fahd.csv");
   assert.ok(
     csv.startsWith(
-      "sura,aya,footnote,text\n1,1,,ด้วยพระนามของอัลลอฮฺ ผู้ทรงกรุณาปราณี ผู้ทรงเมตตาเสมอ\n",
+      "surah,ayah,footnote,text\n1,1,,ด้วยพระนามของอัลลอฮฺ ผู้ทรงกรุณาปราณี ผู้ทรงเมตตาเสมอ\n",
     ),
   );
   assert.ok(
@@ -286,8 +286,8 @@ test("verify runs the data repository's own converter and reports what it gets w
   writeFileSync(
     quranEncModule,
     readFileSync(quranEncModule, "utf8").replace(
-      "index + 1, verse.sura",
-      "index + 2, verse.sura",
+      "index + 1, verse.surah",
+      "index + 2, verse.surah",
     ),
   );
   assert.ok(
@@ -404,7 +404,7 @@ test("overrides.csv annotates a changed row, and an override on an unchanged row
   };
   writeFileSync(
     overrides,
-    "source,sura,aya,footnote,class,note\nking-fahd,1,1,,,ตรงกับต้นฉบับภาษาอาหรับ\n",
+    "source,surah,ayah,footnote,class,note\nking-fahd,1,1,,,ตรงกับต้นฉบับภาษาอาหรับ\n",
   );
   exportFixture(root, "2026.11.14", change, overrides);
   assert.match(
@@ -414,7 +414,7 @@ test("overrides.csv annotates a changed row, and an override on an unchanged row
   const before = snapshot(root);
   writeFileSync(
     overrides,
-    "source,sura,aya,footnote,class,note\nking-fahd,1,2,,spelling,\n",
+    "source,surah,ayah,footnote,class,note\nking-fahd,1,2,,spelling,\n",
   );
   assert.throws(
     () => exportFixture(root, "2026.11.14", change, overrides),

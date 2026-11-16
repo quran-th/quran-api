@@ -89,8 +89,8 @@ test("fetchSurah follows pagination with limit 50 and a cache buster on every re
   assert.equal(surah.verses.length, 120);
   assert.equal(surah.versesCount, 120);
   assert.deepEqual(surah.verses[0], {
-    sura: 2,
-    aya: 1,
+    surah: 2,
+    ayah: 1,
     arabic: "ع",
     translation: "ข้อ 1",
     footnotes: [{ number: 1, text: "เชิงอรรถ" }],

@@ -55,8 +55,8 @@ export function normalizeSurah(data, verses) {
     id: data.id,
     versesCount: data.verses_count,
     verses: verses.map((verse) => ({
-      sura: data.id,
-      aya: verse.verseNumber,
+      surah: data.id,
+      ayah: verse.verseNumber,
       arabic: verse.content,
       translation: verse.translation,
       footnotes: (verse.footnotes ?? []).map((note) => ({

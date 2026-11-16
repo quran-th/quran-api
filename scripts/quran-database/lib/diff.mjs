@@ -3,8 +3,8 @@ import { formatCsv, parseCsvObjects } from "./csv.mjs";
 
 export const CHANGES_HEADER = [
   "source",
-  "sura",
-  "aya",
+  "surah",
+  "ayah",
   "footnote",
   "old",
   "new",
@@ -17,7 +17,7 @@ const compareRefs = (a, b) => {
 };
 
 /**
- * Diffs canonical rows by (sura, aya, footnote). A row missing on one side counts as empty text,
+ * Diffs canonical rows by (surah, ayah, footnote). A row missing on one side counts as empty text,
  * which is how changes/<version>.csv encodes added (old empty) and removed (new empty) rows.
  * @param {Array|null} previous canonical rows of the previous release, or null when there is none
  */
@@ -43,15 +43,15 @@ export function diffSource(slug, previous, current) {
     const newText = after.get(key)?.text ?? "";
     if (oldText === newText) continue;
     changes.push({
-      sura: row.sura,
-      aya: row.aya,
+      surah: row.surah,
+      ayah: row.ayah,
       footnote: row.footnote,
       old: oldText,
       new: newText,
     });
   }
   const refs = [
-    ...new Set(changes.map((change) => `${change.sura}:${change.aya}`)),
+    ...new Set(changes.map((change) => `${change.surah}:${change.ayah}`)),
   ].sort(compareRefs);
   const verseChanges = changes.filter((change) => change.footnote === "");
   return {
@@ -60,8 +60,8 @@ export function diffSource(slug, previous, current) {
     changes,
     rows: changes.map((change) => [
       slug,
-      change.sura,
-      change.aya,
+      change.surah,
+      change.ayah,
       change.footnote,
       change.old,
       change.new,
@@ -87,8 +87,8 @@ export function revertChanges(current, changeRecords, slug) {
   for (const record of changeRecords) {
     if (record.source !== slug) continue;
     const row = {
-      sura: record.sura,
-      aya: record.aya,
+      surah: record.surah,
+      ayah: record.ayah,
       footnote: record.footnote,
       text: record.old,
     };

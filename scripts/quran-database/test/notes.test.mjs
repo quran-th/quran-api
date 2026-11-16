@@ -14,8 +14,8 @@ import {
 import { diffSource } from "../lib/diff.mjs";
 
 const change = (old, next, footnote = "") => ({
-  sura: "2",
-  aya: "197",
+  surah: "2",
+  ayah: "197",
   footnote,
   old,
   new: next,
@@ -167,12 +167,12 @@ test("excerpts bold the change with ~3 words of context, or show a short row in 
 test("overrides reclassify and annotate a changed row, and fail loudly on rows that did not change", () => {
   const diff = diffSource(
     "king-fahd",
-    [{ sura: "2", aya: "197", footnote: "", text: "ผู้ทรงเมตตาเสมอ" }],
-    [{ sura: "2", aya: "197", footnote: "", text: "ผู้ทรงกรุณาเสมอ" }],
+    [{ surah: "2", ayah: "197", footnote: "", text: "ผู้ทรงเมตตาเสมอ" }],
+    [{ surah: "2", ayah: "197", footnote: "", text: "ผู้ทรงกรุณาเสมอ" }],
   );
   const analyses = diff.changes.map(analyzeChange);
   const csv = (rows) =>
-    `source,sura,aya,footnote,class,note\n${rows.join("\n")}\n`;
+    `source,surah,ayah,footnote,class,note\n${rows.join("\n")}\n`;
   const { records, errors } = parseOverrides(
     csv(["king-fahd,2,197,,spelling,ตรงกับฉบับพิมพ์"]),
   );
@@ -230,8 +230,8 @@ test("overrides reclassify and annotate a changed row, and fail loudly on rows t
 test("release notes are deterministic and record Node and ICU versions", () => {
   const diff = diffSource(
     "king-fahd",
-    [{ sura: "1", aya: "1", footnote: "", text: "ด้วยโช่ตรวน" }],
-    [{ sura: "1", aya: "1", footnote: "", text: "ด้วยโซ่ตรวน" }],
+    [{ surah: "1", ayah: "1", footnote: "", text: "ด้วยโช่ตรวน" }],
+    [{ surah: "1", ayah: "1", footnote: "", text: "ด้วยโซ่ตรวน" }],
   );
   const render = () =>
     renderReleaseNotes(

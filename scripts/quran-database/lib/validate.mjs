@@ -56,10 +56,10 @@ export function validateSource(
     }
     surah.verses.forEach((verse, index) => {
       verseCount++;
-      const ref = `${surah.id}:${verse.aya}`;
-      if (verse.sura !== surah.id || verse.aya !== index + 1) {
+      const ref = `${surah.id}:${verse.ayah}`;
+      if (verse.surah !== surah.id || verse.ayah !== index + 1) {
         errors.push(
-          `${label}: surah ${surah.id} verse ${index + 1} is numbered ${verse.aya} (not contiguous)`,
+          `${label}: surah ${surah.id} verse ${index + 1} is numbered ${verse.ayah} (not contiguous)`,
         );
       }
       if (typeof verse.translation !== "string") {

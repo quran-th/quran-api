@@ -10,17 +10,17 @@ import {
 } from "../lib/canonical.mjs";
 
 const verses = [
-  { sura: 1, aya: 1, translation: 'ด้วยพระนาม, "อัลลอฮฺ"', footnotes: [] },
+  { surah: 1, ayah: 1, translation: 'ด้วยพระนาม, "อัลลอฮฺ"', footnotes: [] },
   {
-    sura: 2,
-    aya: 3,
+    surah: 2,
+    ayah: 3,
     translation: " สิ่งเร้นลับ(*1*) และละหมาด (*2*)\r\nต่อ\t",
     footnotes: [
       { number: 1, text: 'หมายถึง, "สิ่ง" ที่พ้นญาณวิสัย' },
       { number: 2, text: "บรรทัดหนึ่ง\nบรรทัดสอง\r\nบรรทัดสาม " },
     ],
   },
-  { sura: 2, aya: 4, translation: "ธรรมดา", footnotes: [] },
+  { surah: 2, ayah: 4, translation: "ธรรมดา", footnotes: [] },
 ];
 
 test("canonical CSV: header, verse row then its footnote rows, byte-exact text", () => {
@@ -28,7 +28,7 @@ test("canonical CSV: header, verse row then its footnote rows, byte-exact text",
   assert.equal(
     csv,
     [
-      "sura,aya,footnote,text",
+      "surah,ayah,footnote,text",
       '1,1,,"ด้วยพระนาม, ""อัลลอฮฺ"""',
       '2,3,," สิ่งเร้นลับ(*1*) และละหมาด (*2*)\r\nต่อ\t"',
       '2,3,1,"หมายถึง, ""สิ่ง"" ที่พ้นญาณวิสัย"',
@@ -60,7 +60,7 @@ test("footnote rows are written ascending by number whatever the input order", (
 });
 
 test("the reader rejects rows out of mushaf order or footnotes away from their verse", () => {
-  const header = "sura,aya,footnote,text\n";
+  const header = "surah,ayah,footnote,text\n";
   assert.throws(
     () => parseCanonical(`${header}1,2,,ก\n1,1,,ข\n`),
     /breaks mushaf order/,
@@ -86,11 +86,11 @@ test("the reader rejects rows out of mushaf order or footnotes away from their v
     /not a positive integer/,
   );
   assert.throws(
-    () => parseCanonical("sura,aya,text\n1,1,ก\n"),
+    () => parseCanonical("surah,ayah,text\n1,1,ก\n"),
     /unexpected CSV header/,
   );
   assert.deepEqual(parseCanonicalRows(`${header}1,1,,\n`), [
-    { sura: "1", aya: "1", footnote: "", text: "" },
+    { surah: "1", ayah: "1", footnote: "", text: "" },
   ]);
 });
 
