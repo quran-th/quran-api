@@ -1,3 +1,9 @@
+# [1.25.0](https://github.com/quran-th/quran-api/compare/v1.24.0...v1.25.0) (2026-11-17)
+
+### Features
+
+* internal changelog summary endpoint for the release index, internal route hardening, dependency upgrade ([0a0b62b](https://github.com/quran-th/quran-api/commit/0a0b62bc54a2b6331d42ef002f948774fa7ae6ca))
+
 # [1.24.0](https://github.com/quran-th/quran-api/compare/v1.23.0...v1.24.0) (2026-11-17)
 
 ### Bug Fixes
