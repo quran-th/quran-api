@@ -17,10 +17,11 @@ const internal = new OpenAPIHono<{ Bindings: Bindings }>();
 const sha256 = async (value: string) =>
   crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
 
-// The global wildcard cors() exposes this route to browsers, so the key is its only guard.
-// Fails closed when INTERNAL_KEY is unset or empty. Digests give equal-length inputs
+// No CORS is served for /internal (see index.ts); the key is the guard.
+// Responses are never cacheable. Fails closed when INTERNAL_KEY is unset or empty. Digests give equal-length inputs
 // for the constant-time comparison.
 internal.use("/*", async (c, next) => {
+  c.header("Cache-Control", "no-store");
   const expected = c.env.INTERNAL_KEY;
   const provided = c.req.header("X-Internal-Key");
   if (!expected || !provided) {
@@ -46,6 +47,7 @@ internal.openapi(
     method: "post",
     path: "/contributors",
     tags: ["Internal"],
+    hide: true,
     summary: "Create a contributor (service-to-service, X-Internal-Key)",
     request: {
       body: {
@@ -140,6 +142,7 @@ internal.openapi(
     method: "put",
     path: "/contributors/{id}/password",
     tags: ["Internal"],
+    hide: true,
     summary:
       "Set a contributor's password (service-to-service, X-Internal-Key)",
     request: {
@@ -205,6 +208,49 @@ internal.openapi(
           displayName: updated.displayName,
           role,
         },
+      },
+      200,
+    );
+  },
+);
+
+const ChangelogSummarySchema = z
+  .object({
+    success: z.literal(true),
+    maxId: z.number().int(),
+    count: z.number().int(),
+  })
+  .openapi("InternalChangelogSummary");
+
+internal.openapi(
+  createRoute({
+    method: "get",
+    path: "/changelog/summary",
+    tags: ["Internal"],
+    hide: true,
+    summary:
+      "Changelog max id and row count (service-to-service, X-Internal-Key)",
+    responses: {
+      200: {
+        content: { "application/json": { schema: ChangelogSummarySchema } },
+        description: "Changelog summary",
+      },
+      401: {
+        content: { "application/json": { schema: ErrorSchema } },
+        description: "Missing or invalid internal key",
+      },
+    },
+  }),
+  async (c) => {
+    const row = await c.env.DB.prepare(
+      "SELECT COALESCE(MAX(id), 0) AS maxId, COUNT(*) AS count FROM changelog",
+    ).first<{ maxId: number; count: number }>();
+
+    return c.json(
+      {
+        success: true as const,
+        maxId: row?.maxId ?? 0,
+        count: row?.count ?? 0,
       },
       200,
     );

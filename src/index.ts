@@ -75,7 +75,11 @@ const app = new OpenAPIHono<{ Bindings: Bindings }>({
   },
 });
 
-app.use("/*", cors());
+// /internal is service-to-service only; never answer browser preflights for it.
+const publicCors = cors();
+app.use("/*", (c, next) =>
+  c.req.path.startsWith("/internal") ? next() : publicCors(c, next),
+);
 
 // ─── GET / ────────────────────────────────────────────────────────────────────
 
