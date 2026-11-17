@@ -34,6 +34,8 @@ export const PRONUNCIATIONS = [
   ['ษะมูด', ' ثَمُود '],
   ['ซะมูด', ' ثَمُود '],
   ['ซามูด', ' ثَمُود '],
+  ['ฮะรอม', 'หะหร่อม'],
+  ['หะรอม', 'หะหร่อม'],
 ]
 
 // Spoken-text rules, applied in this order. The snapshot text is never modified.
