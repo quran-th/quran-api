@@ -274,6 +274,7 @@ export function buildRelease({
   for (const entry of entries) entry.counts = countClasses(entry.analyses);
   reports.forEach((report, index) => {
     report.counts = entries[index].counts;
+    report.analyses = entries[index].analyses;
   });
 
   files[`changes/${version}.csv`] = formatChanges(

@@ -8,13 +8,17 @@ import {
   loadFixture,
 } from "./lib/fetch.mjs";
 import { ExportError, buildRelease, writeRelease } from "./lib/export.mjs";
+import { getRelease, putVerses, reportStep } from "./lib/releaseIndex.mjs";
+import { releaseVerses } from "./lib/releaseVerses.mjs";
 import { EXPECTED_COUNTS, testExpectedCounts } from "./lib/validate.mjs";
 
 const USAGE = `usage: node scripts/quran-database/export.mjs --version YYYY.MM.DD[.N] [options]
   --db DIR                       quran-database checkout to write into (default ../quran-database)
   --overrides FILE               release overrides (default scripts/quran-database/overrides.csv)
   --api URL                      API base (default ${DEFAULT_API})
-  --sources 3,4                  source ids to export (default 3,4)
+  --sources 3,4                  source ids to export (default 3,4, or the release's sources)
+  --release VERSION              release index record to check and report to (env CONTRIBUTE_URL,
+                                 CONTRIBUTE_TOKEN for reading, RELEASE_KEY for reporting)
   --from-fixture DIR             read API-shaped JSON from DIR instead of the network
   --allow-empty                  publish empty translations instead of failing
   --allow-footnote-mismatch      publish verses whose (*n*) markers and footnotes disagree
@@ -61,12 +65,38 @@ function printReport(reports) {
   }
 }
 
+function exportDetail(reports) {
+  return reports
+    .map(
+      (report) =>
+        `${report.slug}: ${report.verseCount} verses, ${report.footnoteCount} footnotes, ${report.diff.initial ? "initial release" : `${report.diff.refs.length} verses changed`}`,
+    )
+    .join("; ");
+}
+
+async function reportVerses(version, reports) {
+  try {
+    const verses = releaseVerses(
+      Object.fromEntries(
+        reports.map((report) => [report.slug, report.analyses]),
+      ),
+    );
+    await putVerses(version, verses);
+    console.log(`reported ${verses.length} changed rows to the release index`);
+  } catch (error) {
+    console.warn(
+      `warning: could not report the changed verses: ${error.message}`,
+    );
+  }
+}
+
 async function main() {
   const { values } = parseArgs({
     options: {
       version: { type: "string" },
       api: { type: "string", default: DEFAULT_API },
-      sources: { type: "string", default: "3,4" },
+      sources: { type: "string" },
+      release: { type: "string" },
       "from-fixture": { type: "string" },
       db: { type: "string" },
       overrides: { type: "string", default: OVERRIDES_FILE },
@@ -76,8 +106,31 @@ async function main() {
       concurrency: { type: "string", default: "4" },
     },
   });
+  let record = null;
+  if (values.release) {
+    record = (await getRelease(values.release)).release;
+    if (values.version && values.version !== record.version)
+      throw new Error(
+        `--version ${values.version} differs from release ${record.version}`,
+      );
+    if (record.status === "released")
+      throw new Error(`release ${record.version} is already released`);
+    values.version = record.version;
+  }
   if (!values.version) throw new Error(`--version is required\n${USAGE}`);
-  const sourceIds = parseSourceIds(values.sources);
+  const sourceIds = parseSourceIds(values.sources ?? "3,4");
+  if (record) {
+    const recordIds = [...record.sourceIds].sort((a, b) => a - b);
+    if (values.sources === undefined)
+      sourceIds.splice(0, sourceIds.length, ...recordIds);
+    else if (
+      JSON.stringify([...sourceIds].sort((a, b) => a - b)) !==
+      JSON.stringify(recordIds)
+    )
+      throw new Error(
+        `--sources ${values.sources} differs from the release's sources ${recordIds.join(",")}`,
+      );
+  }
   let expected = EXPECTED_COUNTS;
   if (values["test-expected-counts"] !== undefined) {
     if (!values["from-fixture"])
@@ -95,40 +148,65 @@ async function main() {
     allowAnyDir: values["from-fixture"] !== undefined,
   });
 
-  let input;
-  if (values["from-fixture"]) {
-    input = loadFixture(resolve(values["from-fixture"]), sourceIds);
-  } else {
-    const concurrency = Math.max(
-      1,
-      Number.parseInt(values.concurrency, 10) || 4,
-    );
-    const sources = await fetchSources(values.api);
-    const surahsBySource = {};
-    for (const sourceId of sourceIds) {
-      console.log(`fetching source ${sourceId} from ${values.api}`);
-      surahsBySource[sourceId] = await fetchSourceSurahs(values.api, sourceId, {
-        concurrency,
-      });
+  if (record) await reportStep(record.version, "export", "running");
+  try {
+    const { reports } = await runExport();
+    if (record) {
+      await reportVerses(record.version, reports);
+      await reportStep(record.version, "export", "done", exportDetail(reports));
     }
-    input = { sources, surahsBySource };
+  } catch (error) {
+    if (record)
+      await reportStep(
+        record.version,
+        "export",
+        "failed",
+        error.message.slice(0, 500),
+      );
+    throw error;
   }
 
-  const { files, reports } = buildRelease({
-    rootDir,
-    version: values.version,
-    sourceIds,
-    expected,
-    allowEmpty: values["allow-empty"],
-    allowFootnoteMismatch: values["allow-footnote-mismatch"],
-    overridesFile: resolve(values.overrides),
-    ...input,
-  });
-  writeRelease(rootDir, files);
-  printReport(reports);
-  console.log(
-    `wrote ${Object.values(files).filter((content) => content !== null).length} files and removed ${Object.values(files).filter((content) => content === null).length} for release ${values.version}`,
-  );
+  async function runExport() {
+    let input;
+    if (values["from-fixture"]) {
+      input = loadFixture(resolve(values["from-fixture"]), sourceIds);
+    } else {
+      const concurrency = Math.max(
+        1,
+        Number.parseInt(values.concurrency, 10) || 4,
+      );
+      const sources = await fetchSources(values.api);
+      const surahsBySource = {};
+      for (const sourceId of sourceIds) {
+        console.log(`fetching source ${sourceId} from ${values.api}`);
+        surahsBySource[sourceId] = await fetchSourceSurahs(
+          values.api,
+          sourceId,
+          {
+            concurrency,
+          },
+        );
+      }
+      input = { sources, surahsBySource };
+    }
+
+    const { files, reports } = buildRelease({
+      rootDir,
+      version: values.version,
+      sourceIds,
+      expected,
+      allowEmpty: values["allow-empty"],
+      allowFootnoteMismatch: values["allow-footnote-mismatch"],
+      overridesFile: resolve(values.overrides),
+      ...input,
+    });
+    writeRelease(rootDir, files);
+    printReport(reports);
+    console.log(
+      `wrote ${Object.values(files).filter((content) => content !== null).length} files and removed ${Object.values(files).filter((content) => content === null).length} for release ${values.version}`,
+    );
+    return { reports };
+  }
 }
 
 main().catch((error) => {

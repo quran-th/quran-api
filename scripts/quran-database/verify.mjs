@@ -33,6 +33,7 @@ import {
   surahDir,
 } from "./lib/metadata.mjs";
 import { parseOverrides } from "./lib/notes.mjs";
+import { reportStep } from "./lib/releaseIndex.mjs";
 import { EXPECTED_COUNTS, validateSource } from "./lib/validate.mjs";
 
 const CONVERTER_MODULES = [
@@ -461,9 +462,12 @@ if (
     options: {
       db: { type: "string" },
       overrides: { type: "string", default: OVERRIDES_FILE },
+      release: { type: "string" },
       "test-expected-counts": { type: "string" },
     },
   });
+  const release = values.release;
+  if (release) await reportStep(release, "verify", "running");
   let expected = EXPECTED_COUNTS;
   if (values["test-expected-counts"] !== undefined) {
     const [surahs, verses] = values["test-expected-counts"]
@@ -478,6 +482,13 @@ if (
     });
   } catch (error) {
     console.error(`verify failed: ${error.message}`);
+    if (release)
+      await reportStep(
+        release,
+        "verify",
+        "failed",
+        error.message.slice(0, 500),
+      );
     process.exit(1);
   }
   const { slugs, problems } = await verifyRepository(rootDir, {
@@ -488,7 +499,16 @@ if (
     console.error(
       `verify failed with ${problems.length} problems:\n- ${problems.join("\n- ")}`,
     );
+    if (release)
+      await reportStep(
+        release,
+        "verify",
+        "failed",
+        `${problems.length} problems: ${problems[0]}`.slice(0, 500),
+      );
     process.exit(1);
   }
   console.log(`verify ok: ${slugs.join(", ")}`);
+  if (release)
+    await reportStep(release, "verify", "done", `ok: ${slugs.join(", ")}`);
 }

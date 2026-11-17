@@ -8,6 +8,8 @@ README and the format converter live in the data repository. Node >= 22, no depe
 export.mjs        fetches the API, validates, writes data/, changes/, releases/<version>.md, CHANGELOG.md
 verify.mjs        checks a data checkout, including the output of its own converter
 release.mjs       prints the release commands; runs nothing
+report-step.mjs   reports one release step (tag, githubRelease) to the release index
+backfill-release-verses.mjs   fills the index verse list of a released version from changes/<version>.csv
 overrides.csv     manual notes/classes for the release being cut (header only between releases)
 lib/              exporter, canonical CSV reader/writer, diff, release notes, validation
 test/             node:test suite and an offline API fixture
@@ -92,6 +94,43 @@ clean.
 - The `## <version>` section of `CHANGELOG.md` and `releases/<version>.md` are replaced, never
   duplicated.
 - A re-run must use the same `--sources`. A version older than the one in `data/` is refused.
+
+## Release index
+
+The release index in contribute (`docs/TRANSLATION_RELEASE.md`) records each release, its steps and its
+changed verses. The tooling reads and reports to it with `--release <version>`; without the flag
+nothing calls the network beyond the API.
+
+| Env | Use |
+| --- | --- |
+| `CONTRIBUTE_URL` | base URL, default `https://contribute.quran.in.th` |
+| `CONTRIBUTE_TOKEN` | admin JWT; **needed to read** a release (the GET routes reject the release key) |
+| `RELEASE_KEY` | CLI release key, sent as `X-Release-Key`; used to report steps and verses (the two PUT routes) |
+
+`RELEASE_KEY` is separate from `INTERNAL_KEY`, the service key between the contribute worker and quran-api.
+Operators must never hold `INTERNAL_KEY`, and the tooling never sends it. Redirects from contribute are
+treated as errors and never followed.
+
+Rollout: set the new secret on the contribute worker with `wrangler secret put RELEASE_KEY` (a fresh random
+value of 32+ bytes, never a reuse of `INTERNAL_KEY`) and export the same value as `RELEASE_KEY` in the shell
+that runs the CLI.
+
+- `export.mjs --release V` fetches the record and stops, writing nothing, when `--version` differs
+  from it, the record is already `released`, or `--sources` differs from its `sourceIds` (without
+  `--version` / `--sources` the record's values are used). It reports step `export` running, then
+  done (verse and footnote counts) or failed (the reason). After a successful export it sends the
+  changed rows of `changes/<version>.csv` to the index: `footnote` 0 for a verse row, the footnote
+  number otherwise, and the release-notes class (overrides applied).
+- `verify.mjs --release V` reports step `verify` done or failed.
+- `release.mjs --release V` prints the commands with `--release` and adds
+  `report-step.mjs <version> <step> <status> [detail]` after the tag and the GitHub release, which
+  are manual steps.
+- `backfill-release-verses.mjs <version> [--db DIR] [--dry-run]` classifies `changes/<version>.csv`
+  the same way (without overrides) and replaces the index list; `--dry-run` only prints counts.
+  Used for `2026.11.14`, `2026.11.16` and `2026.11.16.2`.
+- Reporting is best effort: when it fails the tools print a warning and carry on. Only the initial
+  read of the record with `--release` is required, because the checks above depend on it.
+- The audio scripts take the same flag; see `scripts/translation-audio/README.md`.
 
 ## Release notes
 
