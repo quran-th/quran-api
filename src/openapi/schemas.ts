@@ -571,10 +571,5 @@ export const TranslationAudioSchema = z
         }),
       )
       .min(1),
-    voice: z.object({
-      provider: z.string(),
-      model: z.string(),
-      voiceId: z.string(),
-    }),
   })
   .openapi("TranslationAudio");

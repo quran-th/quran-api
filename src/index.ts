@@ -1167,9 +1167,6 @@ const TRANSLATION_AUDIO_PREFIX = "translation-audio/mukhtasar-th";
 interface TranslationAudioManifest {
   set: string;
   surah: number;
-  provider: string;
-  model: string;
-  voiceId: string;
   audioPath?: string;
   durationMs: number;
   parts?: {
@@ -1305,11 +1302,6 @@ app.openapi(
               lastAyah,
             }),
           ),
-          voice: {
-            provider: manifest.provider,
-            model: manifest.model,
-            voiceId: manifest.voiceId,
-          },
         },
       },
       200,
