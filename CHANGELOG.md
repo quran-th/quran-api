@@ -1,3 +1,14 @@
+# [1.24.0](https://github.com/quran-th/quran-api/compare/v1.23.0...v1.24.0) (2026-11-17)
+
+### Bug Fixes
+
+* pronounce ฮะรอม and หะรอม as หะหร่อม in Thai translation audio ([775fe59](https://github.com/quran-th/quran-api/commit/775fe59ee4bbcaa7e2b4d086694d4b6a27abbc60))
+* stop returning the voice provider, model and voiceId in translation audio ([1fb0ddc](https://github.com/quran-th/quran-api/commit/1fb0ddcc2d107c9545b6472b1f7d835e3412ab5b))
+
+### Features
+
+* tag Thai translation audio with the quran-database release it was generated from ([3ec7e42](https://github.com/quran-th/quran-api/commit/3ec7e428d7021061db0aa33104531000525026d4))
+
 # [1.23.0](https://github.com/quran-th/quran-api/compare/v1.22.1...v1.23.0) (2026-11-16)
 
 ### Bug Fixes
