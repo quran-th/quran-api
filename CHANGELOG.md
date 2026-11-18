@@ -1,3 +1,9 @@
+# [1.26.0](https://github.com/quran-th/quran-api/compare/v1.25.0...v1.26.0) (2026-11-18)
+
+### Features
+
+* internal routes to list and resolve public translation reports for contribute ([55e2f03](https://github.com/quran-th/quran-api/commit/55e2f033122fae06a3712aa2d7cceff5268c7530))
+
 # [1.25.0](https://github.com/quran-th/quran-api/compare/v1.24.0...v1.25.0) (2026-11-17)
 
 ### Features
