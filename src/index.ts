@@ -15,6 +15,7 @@ import contributor from "./routes/contributor";
 import admin from "./routes/admin";
 import reports from "./routes/reports";
 import internal from "./routes/internal";
+import { edgeCache } from "./middleware/edgeCache";
 
 import {
   ErrorSchema,
@@ -80,6 +81,11 @@ const publicCors = cors();
 app.use("/*", (c, next) =>
   c.req.path.startsWith("/internal") ? next() : publicCors(c, next),
 );
+
+app.use("/surahs/:id", edgeCache);
+app.use("/surahs/:id/mushaf-pages", edgeCache);
+app.use("/translation-sources", edgeCache);
+app.use("/verses/by-keys", edgeCache);
 
 // ─── GET / ────────────────────────────────────────────────────────────────────
 
