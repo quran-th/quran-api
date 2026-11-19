@@ -1,3 +1,9 @@
+# [1.27.0](https://github.com/quran-th/quran-api/compare/v1.26.1...v1.27.0) (2026-11-19)
+
+### Features
+
+* cache public reader responses at the edge under a content version ([4fb9880](https://github.com/quran-th/quran-api/commit/4fb98803e602bdd2b6135fc562629514db76e994))
+
 ## [1.26.1](https://github.com/quran-th/quran-api/compare/v1.26.0...v1.26.1) (2026-11-19)
 
 ### Bug Fixes
