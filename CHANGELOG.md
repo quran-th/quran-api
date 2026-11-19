@@ -1,3 +1,9 @@
+## [1.26.1](https://github.com/quran-th/quran-api/compare/v1.26.0...v1.26.1) (2026-11-19)
+
+### Bug Fixes
+
+* query by-keys translations per surah so D1 uses the full verse index ([1a8dc61](https://github.com/quran-th/quran-api/commit/1a8dc6188181c4bc33cabd43d99210ecfb3af34d))
+
 # [1.26.0](https://github.com/quran-th/quran-api/compare/v1.25.0...v1.26.0) (2026-11-18)
 
 ### Features
