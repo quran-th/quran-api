@@ -616,20 +616,30 @@ app.openapi(
         .bind(...params)
         .all<{ surah_number: number; verse_number: number; content: string }>();
 
-      // Fetch Thai translations for the chosen source
-      const vtRows = await c.env.DB.prepare(
-        `SELECT id, surah_number, verse_number, translation_text, is_verified 
-         FROM verse_translations 
-         WHERE source_id = ? AND (${whereClause})`,
-      )
-        .bind(sourceId, ...params)
-        .all<{
-          id: number;
-          surah_number: number;
-          verse_number: number;
-          translation_text: string;
-          is_verified: number;
-        }>();
+      // One query per surah: with source_id outside a long OR list, SQLite only
+      // uses the source_id index prefix and scans every verse of the source
+      // (~6,000 rows read per call), which exhausted D1's daily read quota.
+      const versesBySurah = new Map<number, number[]>();
+      for (const { surah, verse } of keyMap.values()) {
+        if (!versesBySurah.has(surah)) versesBySurah.set(surah, []);
+        versesBySurah.get(surah)!.push(verse);
+      }
+      const vtBatch = await c.env.DB.batch<{
+        id: number;
+        surah_number: number;
+        verse_number: number;
+        translation_text: string;
+        is_verified: number;
+      }>(
+        Array.from(versesBySurah, ([surah, verseNumbers]) =>
+          c.env.DB.prepare(
+            `SELECT id, surah_number, verse_number, translation_text, is_verified
+             FROM verse_translations
+             WHERE source_id = ? AND surah_number = ? AND verse_number IN (${verseNumbers.map(() => "?").join(",")})`,
+          ).bind(sourceId, surah, ...verseNumbers),
+        ),
+      );
+      const vtRows = { results: vtBatch.flatMap((r) => r.results) };
 
       const vtIds = vtRows.results.map((r) => r.id);
 
