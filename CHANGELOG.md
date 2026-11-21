@@ -1,3 +1,9 @@
+# [1.28.0](https://github.com/quran-th/quran-api/compare/v1.27.0...v1.28.0) (2026-11-21)
+
+### Features
+
+* quran-database release tooling reports to the contribute release index ([#20](https://github.com/quran-th/quran-api/issues/20)) ([16f3ee2](https://github.com/quran-th/quran-api/commit/16f3ee23e3ced16b8eb9e7ed7a7986d5dd102be6))
+
 # [1.27.0](https://github.com/quran-th/quran-api/compare/v1.26.1...v1.27.0) (2026-11-19)
 
 ### Features
