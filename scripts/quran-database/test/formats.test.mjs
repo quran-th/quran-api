@@ -31,7 +31,7 @@ const meta = {
   },
 };
 const canonical = [
-  "sura,aya,footnote,text",
+  "surah,ayah,footnote,text",
   '1,1,,"ด้วยพระนาม, ""อัลลอฮฺ"""',
   '2,3,,"สิ่งเร้นลับ(*1*) และละหมาด (*2*)\r\nต่อ\t"',
   '2,3,1,"หมายถึง, ""สิ่ง"" ที่พ้นญาณวิสัย"',
@@ -77,8 +77,8 @@ test('QuranEnc CSV has the download columns, running ids and "[n] text" footnote
 test("Tanzil strips markers, joins lines and trims, then adds the trailer", () => {
   const tanzil = readTanzil(output("tanzil"));
   assert.deepEqual(tanzil.verses, [
-    { sura: 1, aya: 1, text: 'ด้วยพระนาม, "อัลลอฮฺ"' },
-    { sura: 2, aya: 3, text: "สิ่งเร้นลับ และละหมาด ต่อ" },
+    { surah: 1, ayah: 1, text: 'ด้วยพระนาม, "อัลลอฮฺ"' },
+    { surah: 2, ayah: 3, text: "สิ่งเร้นลับ และละหมาด ต่อ" },
   ]);
   assert.equal(tanzil.trailer.length, 10);
   assert.ok(tanzil.trailer.includes("#  Name: ชื่อย่อ"));
@@ -114,8 +114,8 @@ test("Quran.com JSON uses reference-derived footnote ids and restores to the sto
 
 test("Quran.com keeps a marker without a footnote as (*n*) and lists a footnote without a marker", () => {
   const item = toQuranComTranslation(3, {
-    sura: 2,
-    aya: 3,
+    surah: 2,
+    ayah: 3,
     translation: "ก(*1*) ข (*2*) ค(*1*)",
     footnotes: [
       { number: 1, text: "หนึ่ง" },
@@ -132,7 +132,7 @@ test("Quran.com keeps a marker without a footnote as (*n*) and lists a footnote 
   });
 });
 
-test("generic JSON is keyed by sura:aya, lossless, and converts back to the same canonical CSV", () => {
+test("generic JSON is keyed by surah:ayah, lossless, and converts back to the same canonical CSV", () => {
   const text = output("json");
   assert.ok(
     text.startsWith(
@@ -146,8 +146,8 @@ test("generic JSON is keyed by sura:aya, lossless, and converts back to the same
     footnotes: verses[1].footnotes,
   });
   const back = Object.entries(document.verses).map(([key, value]) => {
-    const [sura, aya] = key.split(":").map(Number);
-    return { sura, aya, ...value };
+    const [surah, ayah] = key.split(":").map(Number);
+    return { surah, ayah, ...value };
   });
   assert.equal(formatCanonical(back), canonical);
 });

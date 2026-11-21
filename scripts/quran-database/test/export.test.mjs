@@ -19,6 +19,7 @@ import {
   buildRelease,
   compareVersions,
   parseVersion,
+  readPublishedCsv,
   writeRelease,
 } from "../lib/export.mjs";
 import { resolveDatabaseDir } from "../lib/database.mjs";
@@ -91,7 +92,7 @@ function addConverter(rootDir) {
 
 const headerOnlyOverrides = () => {
   const file = join(tempRoot(), "overrides.csv");
-  writeFileSync(file, "source,sura,aya,footnote,class,note\n");
+  writeFileSync(file, "source,surah,ayah,footnote,class,note\n");
   return file;
 };
 
@@ -103,10 +104,10 @@ const verify = async (root) =>
     })
   ).problems;
 
-const findVerse = (input, sourceId, sura, aya) =>
+const findVerse = (input, sourceId, surah, ayah) =>
   input.surahsBySource[sourceId]
-    .find((surah) => surah.id === sura)
-    .verses.find((verse) => verse.aya === aya);
+    .find((entry) => entry.id === surah)
+    .verses.find((verse) => verse.ayah === ayah);
 
 const read = (root, path) => readFileSync(join(root, path), "utf8");
 
@@ -125,7 +126,7 @@ test("version scheme is YYYY.MM.DD with an optional .N suffix from 2", () => {
   assert.ok(compareVersions("2026.11.14", "2026.11.14.2") < 0);
 });
 
-test("exports write only the canonical CSV + meta per source and are byte-identical on a re-run", () => {
+test("exports write one canonical CSV per surah + meta per source and are byte-identical on a re-run", () => {
   const first = tempRoot();
   const second = tempRoot();
   exportFixture(first, "2026.11.14");
@@ -137,10 +138,14 @@ test("exports write only the canonical CSV + meta per source and are byte-identi
   assert.deepEqual(Object.keys(before), [
     "CHANGELOG.md",
     "changes/2026.11.14.csv",
-    "data/al-mukhtasar.csv",
     "data/al-mukhtasar.meta.json",
-    "data/king-fahd.csv",
+    "data/al-mukhtasar/001.csv",
+    "data/al-mukhtasar/108.csv",
+    "data/al-mukhtasar/112.csv",
     "data/king-fahd.meta.json",
+    "data/king-fahd/001.csv",
+    "data/king-fahd/108.csv",
+    "data/king-fahd/112.csv",
     "releases/2026.11.14.md",
   ]);
   for (const [path, content] of Object.entries(before)) {
@@ -163,7 +168,7 @@ test("exports write only the canonical CSV + meta per source and are byte-identi
   }
   assert.equal(
     read(first, "changes/2026.11.14.csv"),
-    "source,sura,aya,footnote,old,new\n",
+    "source,surah,ayah,footnote,old,new\n",
   );
   assert.match(
     read(first, "CHANGELOG.md"),
@@ -178,10 +183,26 @@ test("exports write only the canonical CSV + meta per source and are byte-identi
 test("canonical CSV and meta hold the stored text losslessly and record line breaks and mismatches", () => {
   const root = tempRoot();
   exportFixture(root, "2026.11.14");
-  const csv = read(root, "data/king-fahd.csv");
+  const csv = readPublishedCsv(root, "king-fahd");
+  assert.ok(
+    read(root, "data/king-fahd/108.csv").startsWith(
+      "surah,ayah,footnote,text\n108,1,,",
+    ),
+  );
+  assert.equal(
+    csv,
+    "surah,ayah,footnote,text\n" +
+      ["001", "108", "112"]
+        .map((n) =>
+          read(root, `data/king-fahd/${n}.csv`).slice(
+            "surah,ayah,footnote,text\n".length,
+          ),
+        )
+        .join(""),
+  );
   assert.ok(
     csv.startsWith(
-      "sura,aya,footnote,text\n1,1,,ด้วยพระนามของอัลลอฮฺ ผู้ทรงกรุณาปราณี ผู้ทรงเมตตาเสมอ\n",
+      "surah,ayah,footnote,text\n1,1,,ด้วยพระนามของอัลลอฮฺ ผู้ทรงกรุณาปราณี ผู้ทรงเมตตาเสมอ\n",
     ),
   );
   assert.ok(
@@ -219,7 +240,7 @@ test("canonical CSV and meta hold the stored text losslessly and record line bre
     ["2026.11.14", null, 14],
   );
   assert.deepEqual(meta.embeddedLineBreaks, ["1:6", "108:1:1"]);
-  assert.doesNotMatch(read(root, "data/al-mukhtasar.csv"), /بِسْمِ/);
+  assert.doesNotMatch(readPublishedCsv(root, "al-mukhtasar"), /بِسْمِ/);
 });
 
 test("the generated repository passes verify, and verify catches tampering and leftovers", async () => {
@@ -227,7 +248,7 @@ test("the generated repository passes verify, and verify catches tampering and l
   exportFixture(root, "2026.11.14");
   addConverter(root);
   assert.deepEqual(await verify(root), []);
-  const csvPath = join(root, "data/king-fahd.csv");
+  const csvPath = join(root, "data/king-fahd/001.csv");
   writeFileSync(
     csvPath,
     readFileSync(csvPath, "utf8")
@@ -237,11 +258,13 @@ test("the generated repository passes verify, and verify catches tampering and l
   let problems = await verify(root);
   assert.ok(
     problems.some((problem) =>
-      problem.includes("sha256 of data/king-fahd.csv"),
+      problem.includes("sha256 of the joined data/king-fahd/*.csv"),
     ),
   );
   assert.ok(
-    problems.some((problem) => problem.includes("not in canonical form")),
+    problems.includes(
+      "king-fahd: data/king-fahd/001.csv is not in canonical form (quoting, order or line endings)",
+    ),
   );
   writeFileSync(
     csvPath,
@@ -251,12 +274,56 @@ test("the generated repository passes verify, and verify catches tampering and l
   assert.ok(
     problems.some((problem) => problem.includes("breaks mushaf order")),
   );
-  mkdirSync(join(root, "data/king-fahd"));
+  writeFileSync(join(root, "data/king-fahd.csv"), "surah,ayah,footnote,text\n");
+  writeFileSync(join(root, "data/notes.txt"), "x\n");
+  writeFileSync(join(root, "data/king-fahd/108.txt"), "x\n");
+  problems = await verify(root);
+  for (const message of [
+    "data/king-fahd.csv is the old single-file layout; data/king-fahd/NNN.csv replaces it",
+    "data/notes.txt is not a <slug>/ folder or <slug>.meta.json",
+    "king-fahd: data/king-fahd/108.txt is not a surah file (NNN.csv)",
+  ])
+    assert.ok(problems.includes(message), message);
+});
+
+test("verify catches a row filed in another surah's file even though the joined text is unchanged", async () => {
+  const root = tempRoot();
+  exportFixture(root, "2026.11.14");
+  addConverter(root);
+  const header = "surah,ayah,footnote,text\n";
+  const file108 = join(root, "data/al-mukhtasar/108.csv");
+  const file112 = join(root, "data/al-mukhtasar/112.csv");
+  const rows108 = readFileSync(file108, "utf8").slice(header.length);
+  const lastRow = rows108.slice(rows108.lastIndexOf("\n", rows108.length - 2) + 1);
+  writeFileSync(file108, header + rows108.slice(0, -lastRow.length));
+  writeFileSync(file112, header + lastRow + readFileSync(file112, "utf8").slice(header.length));
+  const problems = await verify(root);
   assert.ok(
-    (await verify(root)).includes(
-      "data/king-fahd is not part of a <slug>.csv + <slug>.meta.json pair",
+    problems.some((problem) =>
+      problem.startsWith("al-mukhtasar: data/al-mukhtasar/112.csv holds a row of surah 108"),
     ),
+    problems.join("\n"),
   );
+  assert.ok(!problems.some((problem) => problem.includes("sha256")));
+});
+
+test("an export over the old single-file layout reads it as the baseline and removes it", async () => {
+  const root = tempRoot();
+  exportFixture(root, "2026.11.14");
+  for (const slug of ["king-fahd", "al-mukhtasar"]) {
+    writeFileSync(join(root, `data/${slug}.csv`), readPublishedCsv(root, slug));
+    rmSync(join(root, `data/${slug}`), { recursive: true });
+  }
+  exportFixture(root, "2026.11.15");
+  assert.ok(!existsSync(join(root, "data/king-fahd.csv")));
+  assert.ok(!existsSync(join(root, "data/al-mukhtasar.csv")));
+  assert.ok(existsSync(join(root, "data/king-fahd/108.csv")));
+  assert.equal(
+    read(root, "changes/2026.11.15.csv"),
+    "source,surah,ayah,footnote,old,new\n",
+  );
+  addConverter(root);
+  assert.deepEqual(await verify(root), []);
 });
 
 test("verify runs the data repository's own converter and reports what it gets wrong", async () => {
@@ -286,8 +353,8 @@ test("verify runs the data repository's own converter and reports what it gets w
   writeFileSync(
     quranEncModule,
     readFileSync(quranEncModule, "utf8").replace(
-      "index + 1, verse.sura",
-      "index + 2, verse.sura",
+      "index + 1, verse.surah",
+      "index + 2, verse.surah",
     ),
   );
   assert.ok(
@@ -404,7 +471,7 @@ test("overrides.csv annotates a changed row, and an override on an unchanged row
   };
   writeFileSync(
     overrides,
-    "source,sura,aya,footnote,class,note\nking-fahd,1,1,,,ตรงกับต้นฉบับภาษาอาหรับ\n",
+    "source,surah,ayah,footnote,class,note\nking-fahd,1,1,,,ตรงกับต้นฉบับภาษาอาหรับ\n",
   );
   exportFixture(root, "2026.11.14", change, overrides);
   assert.match(
@@ -414,7 +481,7 @@ test("overrides.csv annotates a changed row, and an override on an unchanged row
   const before = snapshot(root);
   writeFileSync(
     overrides,
-    "source,sura,aya,footnote,class,note\nking-fahd,1,2,,spelling,\n",
+    "source,surah,ayah,footnote,class,note\nking-fahd,1,2,,spelling,\n",
   );
   assert.throws(
     () => exportFixture(root, "2026.11.14", change, overrides),

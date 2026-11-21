@@ -10,7 +10,9 @@ export function sha256(content) {
   return createHash("sha256").update(content).digest("hex");
 }
 
-export const csvPath = (slug) => `data/${slug}.csv`;
+export const surahDir = (slug) => `data/${slug}`;
+/** The single-file layout used before per-surah files; read once as a baseline, then removed. */
+export const legacyCsvPath = (slug) => `data/${slug}.csv`;
 export const metaPath = (slug) => `data/${slug}.meta.json`;
 
 export function buildMetadata({

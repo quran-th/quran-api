@@ -14,8 +14,8 @@ import {
 import { diffSource } from "../lib/diff.mjs";
 
 const change = (old, next, footnote = "") => ({
-  sura: "2",
-  aya: "197",
+  surah: "2",
+  ayah: "197",
   footnote,
   old,
   new: next,
@@ -167,12 +167,12 @@ test("excerpts bold the change with ~3 words of context, or show a short row in 
 test("overrides reclassify and annotate a changed row, and fail loudly on rows that did not change", () => {
   const diff = diffSource(
     "king-fahd",
-    [{ sura: "2", aya: "197", footnote: "", text: "ผู้ทรงเมตตาเสมอ" }],
-    [{ sura: "2", aya: "197", footnote: "", text: "ผู้ทรงกรุณาเสมอ" }],
+    [{ surah: "2", ayah: "197", footnote: "", text: "ผู้ทรงเมตตาเสมอ" }],
+    [{ surah: "2", ayah: "197", footnote: "", text: "ผู้ทรงกรุณาเสมอ" }],
   );
   const analyses = diff.changes.map(analyzeChange);
   const csv = (rows) =>
-    `source,sura,aya,footnote,class,note\n${rows.join("\n")}\n`;
+    `source,surah,ayah,footnote,class,note\n${rows.join("\n")}\n`;
   const { records, errors } = parseOverrides(
     csv(["king-fahd,2,197,,spelling,ตรงกับฉบับพิมพ์"]),
   );
@@ -230,8 +230,8 @@ test("overrides reclassify and annotate a changed row, and fail loudly on rows t
 test("release notes are deterministic and record Node and ICU versions", () => {
   const diff = diffSource(
     "king-fahd",
-    [{ sura: "1", aya: "1", footnote: "", text: "ด้วยโช่ตรวน" }],
-    [{ sura: "1", aya: "1", footnote: "", text: "ด้วยโซ่ตรวน" }],
+    [{ surah: "1", ayah: "1", footnote: "", text: "ด้วยโช่ตรวน" }],
+    [{ surah: "1", ayah: "1", footnote: "", text: "ด้วยโซ่ตรวน" }],
   );
   const render = () =>
     renderReleaseNotes(
@@ -256,5 +256,94 @@ test("release notes are deterministic and record Node and ICU versions", () => {
   assert.match(
     initial,
     /## king-fahd \(source 3\)\n\nเผยแพร่ครั้งแรก ไม่มีการเปลี่ยนแปลง \(initial release, no changes\)/,
+  );
+});
+
+const tagGroups = [
+  {
+    id: 1,
+    name: "ไม่ตามหนังสือ: ตามหลักการสะกดของโครงการ",
+    description: "ใช้การสะกดของโครงการ",
+    items: [
+      {
+        id: 1,
+        sourceId: 3,
+        surah: 2,
+        verse: 197,
+        footnoteNo: null,
+        kind: "verseText",
+        resolution: "accept",
+        oldText: "เมตตา",
+        newText: "กรุณา",
+        note: "",
+      },
+      {
+        id: 2,
+        sourceId: 4,
+        surah: 2,
+        verse: 198,
+        footnoteNo: 3,
+        kind: "footnoteText",
+        resolution: "propose",
+        oldText: "ก\nข",
+        newText: "ค",
+        note: "ตามผู้ตรวจ",
+      },
+      {
+        id: 3,
+        sourceId: 3,
+        surah: 3,
+        verse: 1,
+        footnoteNo: null,
+        kind: "verseText",
+        resolution: "reject",
+        oldText: "ง",
+        newText: null,
+        note: "",
+      },
+    ],
+  },
+];
+
+test("renderReleaseNotes without tagGroups has no tagged decisions section", () => {
+  const entries = [
+    { sourceId: 3, diff: diffSource("king-fahd", null, []), analyses: [] },
+  ];
+  const plain = renderReleaseNotes("2026.11.14", entries, runtime);
+  assert.equal(renderReleaseNotes("2026.11.14", entries, runtime, []), plain);
+  assert.doesNotMatch(plain, /Tagged decisions/);
+});
+
+test("renderReleaseNotes lists tagged decisions before the footer", () => {
+  const notes = renderReleaseNotes(
+    "2026.11.14",
+    [{ sourceId: 3, diff: diffSource("king-fahd", null, []), analyses: [] }],
+    runtime,
+    tagGroups,
+  );
+  const section = notes.slice(
+    notes.indexOf("## การตัดสินใจที่ระบุไว้"),
+    notes.indexOf("\n---\n"),
+  );
+  assert.equal(
+    section,
+    [
+      "## การตัดสินใจที่ระบุไว้ (Tagged decisions)",
+      "",
+      "### ไม่ตามหนังสือ: ตามหลักการสะกดของโครงการ",
+      "",
+      "ใช้การสะกดของโครงการ",
+      "",
+      "- **2:197** [source 3] — รับตามข้อเสนอ (accepted)",
+      "  - เดิม (old): เมตตา",
+      "  - ใหม่ (new): กรุณา",
+      "- **2:198** (เชิงอรรถ 3) [source 4] — ใช้ถ้อยคำของผู้ตรวจ (reviewer wording)",
+      "  - เดิม (old): ก ⏎ ข",
+      "  - ใหม่ (new): ค",
+      "  - หมายเหตุ (note): ตามผู้ตรวจ",
+      "- **3:1** [source 3] — คงข้อความเดิม (kept)",
+      "  - เดิม (old): ง",
+      "",
+    ].join("\n"),
   );
 });

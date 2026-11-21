@@ -6,9 +6,9 @@ import {
   validateSource,
 } from "../lib/validate.mjs";
 
-const verse = (sura, aya, translation = "คำแปล", footnotes = []) => ({
-  sura,
-  aya,
+const verse = (surah, ayah, translation = "คำแปล", footnotes = []) => ({
+  surah,
+  ayah,
   arabic: "ع",
   translation,
   footnotes,
@@ -41,7 +41,7 @@ test("the real expectations are 114 surahs and 6236 verses and are applied by de
 
 test("non-contiguous verse numbers and verses_count mismatches fail", () => {
   const surahs = twoSurahs();
-  surahs[0].verses[1].aya = 3;
+  surahs[0].verses[1].ayah = 3;
   surahs[1].versesCount = 2;
   const { errors } = validateSource(3, surahs, { expected });
   assert.ok(errors.some((error) => error.includes("verse 2 is numbered 3")));

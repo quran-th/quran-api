@@ -8,6 +8,8 @@ README and the format converter live in the data repository. Node >= 22, no depe
 export.mjs        fetches the API, validates, writes data/, changes/, releases/<version>.md, CHANGELOG.md
 verify.mjs        checks a data checkout, including the output of its own converter
 release.mjs       prints the release commands; runs nothing
+report-step.mjs   reports one release step (tag, githubRelease) to the release index
+backfill-release-verses.mjs   fills the index verse list of a released version from changes/<version>.csv
 overrides.csv     manual notes/classes for the release being cut (header only between releases)
 lib/              exporter, canonical CSV reader/writer, diff, release notes, validation
 test/             node:test suite and an offline API fixture
@@ -38,11 +40,18 @@ git -C ../quran-database status --short    # review data/, changes/, releases/<v
 git -C ../quran-database add data changes releases CHANGELOG.md
 git -C ../quran-database commit -m "Release 2026.11.14"
 git -C ../quran-database tag v2026.11.14
+node ../quran-database/scripts/bundle.mjs --version 2026.11.14 --out ../quran-database/out \
+  && (cd ../quran-database/out && rm -f quran-database-2026.11.14.zip && zip -qrX quran-database-2026.11.14.zip quran-database-2026.11.14)
+gh release upload v2026.11.14 ../quran-database/out/quran-database-2026.11.14.zip --repo quran-th/quran-database
 ```
 
 1. Read `releases/<version>.md` before committing: every change beyond spelling is listed there.
    Use `overrides.csv` to annotate or reclassify a change, then export again.
-2. Pushing the commit and tag is a separate, manual step. Nothing here pushes.
+2. Pushing the commit and tag, and creating the GitHub release, are separate, manual steps. Nothing
+   here pushes. Upload the zip after the GitHub release exists. It is the release asset:
+   `quran-database-<version>/data/<slug>.csv` (all surahs joined by the data repository's
+   `scripts/bundle.mjs`, which checks it against `meta.json`'s `sha256`) and `<slug>.meta.json`,
+   built in the git-ignored `out/` of the data checkout.
 3. If `overrides.csv` had rows, empty it (keep the header) and commit that in quran-api.
 
 ### What the export does
@@ -58,7 +67,9 @@ git -C ../quran-database tag v2026.11.14
    - every `(*n*)` marker has footnote `n` and every footnote has a marker
      (`--allow-footnote-mismatch` publishes them and lists them in `meta.json`);
    - footnote numbers unique and in 1..99, no empty footnote.
-3. Builds every file in memory, then writes them: `data/<slug>.csv` + `.meta.json`, the diff
+3. Builds every file in memory, then writes them: one canonical CSV per surah,
+   `data/<slug>/001.csv` … `114.csv` (each with the header), and `data/<slug>.meta.json`, whose
+   `sha256` covers the whole translation joined into one CSV; the diff
    against the previous release as `changes/<version>.csv` and `releases/<version>.md` (after
    `overrides.csv` is applied), and the `CHANGELOG.md` section.
 
@@ -83,6 +94,49 @@ clean.
 - The `## <version>` section of `CHANGELOG.md` and `releases/<version>.md` are replaced, never
   duplicated.
 - A re-run must use the same `--sources`. A version older than the one in `data/` is refused.
+
+## Release index
+
+The release index in contribute (`docs/TRANSLATION_RELEASE.md`) records each release, its steps and its
+changed verses. The tooling reads and reports to it with `--release <version>`; without the flag
+nothing calls the network beyond the API.
+
+| Env | Use |
+| --- | --- |
+| `CONTRIBUTE_URL` | base URL, default `https://contribute.quran.in.th` |
+| `CONTRIBUTE_TOKEN` | admin JWT; **needed to read** a release (the GET routes reject the release key) |
+| `RELEASE_KEY` | CLI release key, sent as `X-Release-Key`; used to report steps and verses (the two PUT routes) |
+
+`RELEASE_KEY` is separate from `INTERNAL_KEY`, the service key between the contribute worker and quran-api.
+Operators must never hold `INTERNAL_KEY`, and the tooling never sends it. Redirects from contribute are
+treated as errors and never followed.
+
+With `--release`, the release notes also get a "Tagged decisions" section: the proofing items that
+reviewers tagged in the contribute proofing tool (for example "not following the book"), grouped by tag
+with the old text, the new text (when one applies) and the reviewer's note. It is read from
+`GET /api/releases/<version>/tags` with the same `CONTRIBUTE_TOKEN`; if that fetch fails the export prints a
+warning and writes the notes without the section.
+
+Rollout: set the new secret on the contribute worker with `wrangler secret put RELEASE_KEY` (a fresh random
+value of 32+ bytes, never a reuse of `INTERNAL_KEY`) and export the same value as `RELEASE_KEY` in the shell
+that runs the CLI.
+
+- `export.mjs --release V` fetches the record and stops, writing nothing, when `--version` differs
+  from it, the record is already `released`, or `--sources` differs from its `sourceIds` (without
+  `--version` / `--sources` the record's values are used). It reports step `export` running, then
+  done (verse and footnote counts) or failed (the reason). After a successful export it sends the
+  changed rows of `changes/<version>.csv` to the index: `footnote` 0 for a verse row, the footnote
+  number otherwise, and the release-notes class (overrides applied).
+- `verify.mjs --release V` reports step `verify` done or failed.
+- `release.mjs --release V` prints the commands with `--release` and adds
+  `report-step.mjs <version> <step> <status> [detail]` after the tag and the GitHub release, which
+  are manual steps.
+- `backfill-release-verses.mjs <version> [--db DIR] [--dry-run]` classifies `changes/<version>.csv`
+  the same way (without overrides) and replaces the index list; `--dry-run` only prints counts.
+  Used for `2026.11.14`, `2026.11.16` and `2026.11.16.2`.
+- Reporting is best effort: when it fails the tools print a warning and carry on. Only the initial
+  read of the record with `--release` is required, because the checks above depend on it.
+- The audio scripts take the same flag; see `scripts/translation-audio/README.md`.
 
 ## Release notes
 
@@ -130,7 +184,7 @@ committed. Re-running on the same machine reproduces them byte for byte.
 ### Overrides: `overrides.csv`
 
 ```
-source,sura,aya,footnote,class,note
+source,surah,ayah,footnote,class,note
 king-fahd,2,197,,,แก้ให้ตรงกับต้นฉบับภาษาอาหรับ
 king-fahd,14,49,1,spelling,
 ```
@@ -149,7 +203,11 @@ king-fahd,14,49,1,spelling,
 
 Exits non-zero on any problem:
 
-- `data/` holds only `<slug>.csv` + `<slug>.meta.json` pairs.
+- `data/` holds only `<slug>/` folders and `<slug>.meta.json` files; a leftover `<slug>.csv` from
+  the old single-file layout is reported. An export over that layout reads it as the baseline and
+  removes it.
+- Surah files: only `NNN.csv`, each in canonical form on its own, every row in the file named by
+  its surah. The files are joined (header once) and the joined text is checked as below.
 - Canonical CSV: strict RFC 4180 parse (no bare quotes, unterminated fields, unequal field counts,
   BOM or missing final newline); mushaf order with each verse row before its ascending footnotes;
   contiguous ayat and 114/6236; byte-identical to the canonical writer's output; counts, `sha256`,

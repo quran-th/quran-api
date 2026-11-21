@@ -3,7 +3,7 @@
 // edge cache shows up here exactly as it would for a reader.
 //
 //   node scripts/translation-audio/verify.mjs                  # every surah in the set's index.json
-//   node scripts/translation-audio/verify.mjs --surahs 78,101  [--api https://api.quran.in.th]
+//   node scripts/translation-audio/verify.mjs --surahs 78,101  [--api https://api.quran.in.th] [--release <version>]
 //
 // Per part (the whole surah, or one ayah of a split surah): the decoded length must match the
 // part's durationMs, and every ayah's startMs - part.startMs must land on its lead-in silence
@@ -18,6 +18,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { parseArgs, parseSurahs, setDir, limit } from './common.mjs'
+import { reportAudioRegen } from './release.mjs'
 
 const run = promisify(execFile)
 const args = parseArgs()
@@ -131,4 +132,7 @@ results.sort((a, b) => a[0] - b[0])
 for (const [, r] of results) if (!r.ok || args.verbose) console.log(r.line)
 const failed = results.filter(([, r]) => !r.ok).length
 console.log(`${results.length} surahs checked, ${failed} failed`)
+// --release <version>: the audioRegen step is done only once this check passes
+const release = args.release && args.release !== true ? String(args.release) : null
+if (release) await reportAudioRegen(release, failed ? 'failed' : 'done', `verify: ${results.length} surahs checked, ${failed} failed`)
 if (failed) process.exit(1)

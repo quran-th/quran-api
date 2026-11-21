@@ -10,9 +10,9 @@ import {
 } from "../lib/diff.mjs";
 import { analyzeChange, countClasses } from "../lib/notes.mjs";
 
-const verse = (sura, aya, translation, footnotes = []) => ({
-  sura,
-  aya,
+const verse = (surah, ayah, translation, footnotes = []) => ({
+  surah,
+  ayah,
   translation,
   footnotes,
 });
@@ -38,7 +38,7 @@ const entry = (sourceId, diff) => ({
   counts: countClasses(diff.changes.map(analyzeChange)),
 });
 
-test("diffSource keys rows by (sura, aya, footnote): verse and footnote rows added, removed and changed", () => {
+test("diffSource keys rows by (surah, ayah, footnote): verse and footnote rows added, removed and changed", () => {
   const diff = diffSource("king-fahd", previous, current);
   assert.deepEqual(diff.rows, [
     ["king-fahd", "1", "1", "", "เดิม", 'ใหม่, "แก้"'],
@@ -63,7 +63,7 @@ test("diffSource keys rows by (sura, aya, footnote): verse and footnote rows add
   );
   assert.equal(
     formatChanges([diff]).split("\n", 1)[0],
-    "source,sura,aya,footnote,old,new",
+    "source,surah,ayah,footnote,old,new",
   );
 });
 

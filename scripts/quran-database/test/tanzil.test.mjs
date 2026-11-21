@@ -36,10 +36,10 @@ test("tanzilText strips markers, joins lines, trims edges and replaces pipes", (
   });
 });
 
-test("toTanzil writes sura|aya|text lines followed by the tanzil.net style trailer", () => {
+test("toTanzil writes surah|ayah|text lines followed by the tanzil.net style trailer", () => {
   const verses = [
-    { sura: 1, aya: 1, translation: "ด้วยพระนามของอัลลอฮฺ (*1*)" },
-    { sura: 1, aya: 2, translation: "บรรทัด\r\nใหม่ " },
+    { surah: 1, ayah: 1, translation: "ด้วยพระนามของอัลลอฮฺ (*1*)" },
+    { surah: 1, ayah: 2, translation: "บรรทัด\r\nใหม่ " },
   ];
   const { content, adjustments } = toTanzil(verses, info);
   assert.equal(
@@ -69,7 +69,7 @@ test("toTanzil writes sura|aya|text lines followed by the tanzil.net style trail
   });
   const parsed = readTanzil(content);
   assert.equal(parsed.verses.length, 2);
-  assert.deepEqual(parsed.verses[1], { sura: 1, aya: 2, text: "บรรทัด ใหม่" });
+  assert.deepEqual(parsed.verses[1], { surah: 1, ayah: 2, text: "บรรทัด ใหม่" });
   assert.equal(parsed.trailer.length, 10);
   for (const line of content.split("\n")) assert.doesNotMatch(line, /\s$/);
 });

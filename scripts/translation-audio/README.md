@@ -25,6 +25,12 @@ node --env-file=.dev.vars scripts/translation-audio/generate.mjs --provider elev
   --set v1 --surahs 1,78-114 [--ayahs 2:255 --voice <id> --model <model_id> --stability 0.5 --similarity 0.96 \
   --format mp3_44100_128 --seed 1 --concurrency 3 --max-chars 50000 --force]
 
+# 4b. Instead of hand-picking ayahs, take them from a release in the release index. --release adds
+#     the release's changed Al-Mukhtasar ayahs (footnote rows ignored) on top of --ayahs/--surahs,
+#     prints the surahs to rebuild, and reports step audioRegen running (failed if a clip fails).
+#     Needs CONTRIBUTE_TOKEN (read) and RELEASE_KEY (report); CONTRIBUTE_URL defaults to production.
+node --env-file=.dev.vars scripts/translation-audio/generate.mjs --provider elevenlabs --set v1 --release 2026.11.17
+
 # 5. Stitch into surah mp3 (or per-ayah parts) + manifest + index
 node scripts/translation-audio/build.mjs --set placeholder-kanya --surahs 1,112 [--lead-ms 250 --gap-ms 0 --allow-missing]
 #    [--split-above-mb 20 --resplit --no-whole]
@@ -39,7 +45,7 @@ node scripts/translation-audio/upload.mjs --set v1 --remote --i-have-approval [-
 #    silence. With the set built locally it also checks the timings: no clip newer than its
 #    surah's build, the API's parts and offsets equal to the build's, and a built whole file served.
 #    Run after every production upload.
-node scripts/translation-audio/verify.mjs [--surahs 78,101]
+node scripts/translation-audio/verify.mjs [--surahs 78,101] [--release 2026.11.17]   # --release: audioRegen done/failed
 
 # Voices and models (needs the key)
 node --env-file=.dev.vars scripts/translation-audio/providers.mjs voices

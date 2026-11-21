@@ -5,12 +5,20 @@ import { parseArgs, parseSurahs, loadSnapshot, setDir, sha256, ffprobeDurationMs
 import { normalizeForSpeech } from './normalize.mjs'
 import { createSayProvider, createElevenLabsProvider } from './providers.mjs'
 import { ELEVENLABS_DEFAULTS } from './config.mjs'
+import { releaseAudioAyahs, reportAudioRegen } from './release.mjs'
 
 const args = parseArgs()
 const setId = args.set
 if (!setId || setId === true) throw new Error('--set <setId> is required')
 // --ayahs 2:37,23:56 adds single ayahs on top of --surahs (useful for auditions)
 const extraAyahs = new Set(args.ayahs && args.ayahs !== true ? String(args.ayahs).split(',').map((k) => k.trim()) : [])
+// --release <version> adds the ayahs that release changed (from the release index)
+const release = args.release && args.release !== true ? String(args.release) : null
+if (release) {
+  const changed = await releaseAudioAyahs(release)
+  for (const a of changed) extraAyahs.add(`${a.surah}:${a.ayah}`)
+  console.log(`release ${release}: ${changed.length} changed ayahs in surahs ${[...new Set(changed.map((a) => a.surah))].join(',')} (rebuild and verify these surahs)`)
+}
 const surahs = args.surahs && args.surahs !== true ? parseSurahs(args.surahs) : []
 const clipsDir = path.join(setDir(setId), 'clips')
 
@@ -89,6 +97,7 @@ if (provider.name === 'elevenlabs' && !process.env.ELEVENLABS_API_KEY) {
   process.exit(1)
 }
 
+if (release) await reportAudioRegen(release, 'running', `generating ${batch.length} clips`)
 console.log(`${batch.length} clips to generate (${spent} chars)${batch.length < todo.length ? `, stopped by --max-chars ${maxChars}` : ''}`)
 
 // A clip being regenerated is moved to clips/<surah>/archive/ first, so earlier audio is never lost
@@ -131,4 +140,7 @@ await Promise.all(Array.from({ length: concurrency }, async () => {
 }))
 console.log(`generated ${done}, failed ${failures.length}`)
 failures.forEach((f) => console.error('  FAILED ' + f))
-if (failures.length) process.exit(1)
+if (failures.length) {
+  if (release) await reportAudioRegen(release, 'failed', `${failures.length} clips failed to generate`)
+  process.exit(1)
+}

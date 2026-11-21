@@ -26,8 +26,8 @@ export const isDeclared = (cls) => !UNDECLARED.has(cls);
 
 export const OVERRIDES_HEADER = [
   "source",
-  "sura",
-  "aya",
+  "surah",
+  "ayah",
   "footnote",
   "class",
   "note",
@@ -241,14 +241,14 @@ export function excerpt(tokens, start, end, full = false) {
 
 export const changeRef = (change) =>
   change.footnote === ""
-    ? `${change.sura}:${change.aya}`
-    : `${change.sura}:${change.aya} เชิงอรรถ ${change.footnote}`;
+    ? `${change.surah}:${change.ayah}`
+    : `${change.surah}:${change.ayah} เชิงอรรถ ${change.footnote}`;
 
 /** Splits one changed canonical row into classified hunks. */
 export function analyzeChange(change) {
   const base = {
-    sura: change.sura,
-    aya: change.aya,
+    surah: change.surah,
+    ayah: change.ayah,
     footnote: change.footnote,
     ref: changeRef(change),
     note: null,
@@ -309,12 +309,12 @@ export function parseOverrides(text) {
   records.forEach((record, index) => {
     const line = index + 2;
     if (
-      !/^[1-9]\d*$/.test(record.sura) ||
-      !/^[1-9]\d*$/.test(record.aya) ||
+      !/^[1-9]\d*$/.test(record.surah) ||
+      !/^[1-9]\d*$/.test(record.ayah) ||
       !/^([1-9]\d*)?$/.test(record.footnote)
     ) {
       errors.push(
-        `overrides.csv row ${line}: sura, aya and footnote must be positive integers (footnote may be empty)`,
+        `overrides.csv row ${line}: surah, ayah and footnote must be positive integers (footnote may be empty)`,
       );
     }
     if (record.class !== "" && !CLASSES.includes(record.class))
@@ -334,7 +334,7 @@ export function parseOverrides(text) {
 }
 
 const overrideKey = (record) =>
-  `${record.source} ${record.sura}:${record.aya}${record.footnote === "" ? "" : `:${record.footnote}`}`;
+  `${record.source} ${record.surah}:${record.ayah}${record.footnote === "" ? "" : `:${record.footnote}`}`;
 
 /**
  * Applies overrides to the analyses of this release, keyed by slug. Returns one error per override
@@ -346,8 +346,8 @@ export function applyOverrides(analysesBySlug, records) {
     const key = overrideKey(record);
     const analysis = analysesBySlug[record.source]?.find(
       (entry) =>
-        entry.sura === record.sura &&
-        entry.aya === record.aya &&
+        entry.surah === record.surah &&
+        entry.ayah === record.ayah &&
         entry.footnote === record.footnote,
     );
     if (!analysis) {
@@ -385,7 +385,7 @@ export function countClasses(analyses) {
   for (const analysis of analyses) {
     for (const hunk of analysis.hunks) {
       counts[hunk.class].hunks++;
-      counts[hunk.class].verses.add(`${analysis.sura}:${analysis.aya}`);
+      counts[hunk.class].verses.add(`${analysis.surah}:${analysis.ayah}`);
     }
   }
   return Object.fromEntries(
@@ -457,10 +457,37 @@ function renderSource({ sourceId, diff, analyses }) {
   return lines;
 }
 
+const RESOLUTION_LABELS = {
+  accept: "รับตามข้อเสนอ (accepted)",
+  propose: "ใช้ถ้อยคำของผู้ตรวจ (reviewer wording)",
+  reject: "คงข้อความเดิม (kept)",
+};
+
+function renderTagGroups(tagGroups) {
+  const lines = ["## การตัดสินใจที่ระบุไว้ (Tagged decisions)", ""];
+  for (const tag of tagGroups) {
+    lines.push(`### ${display(tag.name)}`, "");
+    if (tag.description) lines.push(display(tag.description), "");
+    for (const item of tag.items) {
+      const footnote = item.footnoteNo ? ` (เชิงอรรถ ${item.footnoteNo})` : "";
+      lines.push(
+        `- **${item.surah}:${item.verse}**${footnote} [source ${item.sourceId}] — ${RESOLUTION_LABELS[item.resolution] ?? item.resolution}`,
+        `  - เดิม (old): ${display(item.oldText).trim() || "—"}`,
+      );
+      if (item.newText !== null && item.newText !== undefined)
+        lines.push(`  - ใหม่ (new): ${display(item.newText).trim() || "—"}`);
+      if (item.note) lines.push(`  - หมายเหตุ (note): ${display(item.note)}`);
+    }
+    lines.push("");
+  }
+  return lines;
+}
+
 /** releases/<version>.md; `runtime` is process.versions, recorded because token boundaries depend on ICU. */
-export function renderReleaseNotes(version, entries, runtime) {
+export function renderReleaseNotes(version, entries, runtime, tagGroups = []) {
   const lines = [`# ${version}`, ""];
   for (const entry of entries) lines.push(...renderSource(entry));
+  if (tagGroups.length) lines.push(...renderTagGroups(tagGroups));
   lines.push(
     "---",
     "",

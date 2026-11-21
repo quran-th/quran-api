@@ -14,7 +14,10 @@ import {
   embeddedLineBreaks,
   formatCanonical,
   formatCanonicalRows,
+  joinSurahTexts,
   parseCanonical,
+  parseCanonicalRows,
+  surahFileName,
   toCanonicalRows,
 } from "./lib/canonical.mjs";
 import {
@@ -23,8 +26,14 @@ import {
   resolveDatabaseDir,
 } from "./lib/database.mjs";
 import { parseChanges } from "./lib/diff.mjs";
-import { csvPath, metaPath, sha256 } from "./lib/metadata.mjs";
+import {
+  legacyCsvPath,
+  metaPath,
+  sha256,
+  surahDir,
+} from "./lib/metadata.mjs";
 import { parseOverrides } from "./lib/notes.mjs";
+import { reportStep } from "./lib/releaseIndex.mjs";
 import { EXPECTED_COUNTS, validateSource } from "./lib/validate.mjs";
 
 const CONVERTER_MODULES = [
@@ -56,18 +65,18 @@ function checkOrder(verses, expected, fail) {
   verses.forEach((verse, index) => {
     const previous = verses[index - 1];
     const contiguous =
-      previous && previous.sura === verse.sura
-        ? verse.aya === previous.aya + 1
-        : verse.aya === 1 && (!previous || verse.sura > previous.sura);
+      previous && previous.surah === verse.surah
+        ? verse.ayah === previous.ayah + 1
+        : verse.ayah === 1 && (!previous || verse.surah > previous.surah);
     if (!contiguous)
-      fail(`CSV verse ${verse.sura}:${verse.aya} breaks mushaf order`);
+      fail(`CSV verse ${verse.surah}:${verse.ayah} breaks mushaf order`);
   });
-  const suras = [...new Set(verses.map((verse) => verse.sura))];
-  if (suras.length !== expected.surahs)
-    fail(`CSV has ${suras.length} surahs, expected ${expected.surahs}`);
+  const surahNumbers = [...new Set(verses.map((verse) => verse.surah))];
+  if (surahNumbers.length !== expected.surahs)
+    fail(`CSV has ${surahNumbers.length} surahs, expected ${expected.surahs}`);
   if (
     expected.contiguousSurahs !== false &&
-    suras.some((sura, index) => sura !== index + 1)
+    surahNumbers.some((surah, index) => surah !== index + 1)
   )
     fail("CSV surahs are not 1..N");
   if (verses.length !== expected.verses)
@@ -83,13 +92,13 @@ function checkQuranEnc(text, verses, lib, fail) {
     if (!record) return;
     const expected = {
       id: String(index + 1),
-      sura: String(verse.sura),
-      aya: String(verse.aya),
+      sura: String(verse.surah),
+      aya: String(verse.ayah),
       translation: verse.translation,
       footnotes: lib.quranEncFootnotes(verse.footnotes),
     };
     if (!isDeepStrictEqual(record, expected))
-      fail(`quranenc row ${index + 2} differs from ${verse.sura}:${verse.aya}`);
+      fail(`quranenc row ${index + 2} differs from ${verse.surah}:${verse.ayah}`);
   });
 }
 
@@ -108,10 +117,10 @@ function checkTanzil(text, verses, meta, lib, fail) {
   verses.forEach((verse, index) => {
     const line = tanzil.verses[index];
     if (!line) return;
-    if (line.sura !== verse.sura || line.aya !== verse.aya)
-      fail(`tanzil line ${index + 1} is ${line.sura}|${line.aya}`);
+    if (line.surah !== verse.surah || line.ayah !== verse.ayah)
+      fail(`tanzil line ${index + 1} is ${line.surah}|${line.ayah}`);
     if (line.text !== lib.tanzilText(verse.translation).text)
-      fail(`tanzil ${verse.sura}:${verse.aya} text differs from the CSV`);
+      fail(`tanzil ${verse.surah}:${verse.ayah} text differs from the CSV`);
   });
   if (
     tanzil.trailer.length !== 10 ||
@@ -133,7 +142,7 @@ function checkQuranCom(text, verses, meta, lib, fail) {
     );
   verses.forEach((verse, index) => {
     const item = document.translations?.[index];
-    const ref = `${verse.sura}:${verse.aya}`;
+    const ref = `${verse.surah}:${verse.ayah}`;
     if (!item) return;
     if (item.verse_key !== ref || item.resource_id !== sourceId)
       fail(
@@ -143,7 +152,7 @@ function checkQuranCom(text, verses, meta, lib, fail) {
       fail(`quran-com ${ref} text does not restore to the CSV text`);
     const expectedNotes = Object.fromEntries(
       verse.footnotes.map((note) => [
-        String(lib.footnoteId(sourceId, verse.sura, verse.aya, note.number)),
+        String(lib.footnoteId(sourceId, verse.surah, verse.ayah, note.number)),
         note.text,
       ]),
     );
@@ -152,7 +161,7 @@ function checkQuranCom(text, verses, meta, lib, fail) {
     for (const sup of lib.supFootnoteIds(item.text)) {
       if (
         sup.id !==
-          lib.footnoteId(sourceId, verse.sura, verse.aya, sup.number) ||
+          lib.footnoteId(sourceId, verse.surah, verse.ayah, sup.number) ||
         !(String(sup.id) in item.foot_notes)
       )
         fail(`quran-com ${ref} has a dangling <sup foot_note=${sup.id}>`);
@@ -172,16 +181,60 @@ function checkJson(text, verses, csv, meta, fail) {
   if (keys.length !== verses.length)
     fail(`JSON has ${keys.length} verses, expected ${verses.length}`);
   const back = keys.map((key) => {
-    const [sura, aya] = key.split(":").map(Number);
+    const [surah, ayah] = key.split(":").map(Number);
     return {
-      sura,
-      aya,
+      surah,
+      ayah,
       translation: document.verses[key].translation,
       footnotes: document.verses[key].footnotes,
     };
   });
   if (formatCanonicalRows(toCanonicalRows(back)) !== csv)
     fail("round trip canonical -> json -> canonical differs");
+}
+
+const SURAH_FILE = /^\d{3}\.csv$/;
+
+/**
+ * Checks data/<slug>/NNN.csv one by one (name, canonical form, every row in its own surah's file)
+ * and returns the joined whole-translation CSV, or null when the files cannot be joined.
+ */
+function readSurahFiles(rootDir, slug, fail) {
+  const dir = surahDir(slug);
+  const names = readdirSync(join(rootDir, dir)).sort();
+  for (const name of names)
+    if (!SURAH_FILE.test(name))
+      fail(`${dir}/${name} is not a surah file (NNN.csv)`);
+  const surahNames = names.filter((name) => SURAH_FILE.test(name));
+  if (surahNames.length === 0) {
+    fail(`${dir} has no surah files`);
+    return null;
+  }
+  const texts = surahNames.map((name) => {
+    const text = readFileSync(join(rootDir, dir, name), "utf8");
+    try {
+      const rows = parseCanonicalRows(text);
+      if (rows.length === 0) fail(`${dir}/${name} has no rows`);
+      const stray = rows.find((row) => surahFileName(row.surah) !== name);
+      if (stray)
+        fail(
+          `${dir}/${name} holds a row of surah ${stray.surah} (${stray.surah}:${stray.ayah})`,
+        );
+      if (formatCanonicalRows(rows) !== text)
+        fail(
+          `${dir}/${name} is not in canonical form (quoting, order or line endings)`,
+        );
+    } catch (error) {
+      fail(`${dir}/${name}: ${error.message}`);
+    }
+    return text;
+  });
+  try {
+    return joinSurahTexts(texts);
+  } catch (error) {
+    fail(`${dir}: ${error.message}`);
+    return null;
+  }
 }
 
 /**
@@ -200,11 +253,12 @@ export function verifySource(
   const meta = JSON.parse(readFileSync(join(rootDir, metaPath(slug)), "utf8"));
   if (meta.source?.slug !== slug)
     fail(`meta.json source.slug is ${meta.source?.slug}`);
-  const csv = readFileSync(join(rootDir, csvPath(slug)), "utf8");
+  const csv = readSurahFiles(rootDir, slug, fail);
+  if (csv === null) return problems;
   const actualHash = sha256(csv);
   if (actualHash !== meta.sha256)
     fail(
-      `sha256 of ${csvPath(slug)} is ${actualHash}, meta.json says ${meta.sha256}`,
+      `sha256 of the joined ${surahDir(slug)}/*.csv is ${actualHash}, meta.json says ${meta.sha256}`,
     );
 
   let verses;
@@ -229,9 +283,9 @@ export function verifySource(
     );
   if (!isDeepStrictEqual(embeddedLineBreaks(verses), meta.embeddedLineBreaks))
     fail("embeddedLineBreaks differs from the CSV");
-  const surahs = [...new Set(verses.map((verse) => verse.sura))].map((id) => {
+  const surahs = [...new Set(verses.map((verse) => verse.surah))].map((id) => {
     const surahVerses = verses
-      .filter((verse) => verse.sura === id)
+      .filter((verse) => verse.surah === id)
       .map((verse) => ({ ...verse, arabic: "-" }));
     return { id, versesCount: surahVerses.length, verses: surahVerses };
   });
@@ -336,18 +390,20 @@ export async function verifyRepository(
     .filter((entry) => entry.isFile() && entry.name.endsWith(".meta.json"))
     .map((entry) => entry.name.slice(0, -".meta.json".length))
     .sort();
-  const allowed = new Set(
-    slugs.flatMap((slug) => [`${slug}.csv`, `${slug}.meta.json`]),
-  );
   for (const entry of entries) {
-    if (!entry.isFile() || !allowed.has(entry.name))
-      problems.push(
-        `data/${entry.name} is not part of a <slug>.csv + <slug>.meta.json pair`,
-      );
+    const slug = entry.name.replace(/\.csv$/, "");
+    if (entry.isFile() && entry.name.endsWith(".meta.json")) continue;
+    if (entry.isDirectory() && slugs.includes(entry.name)) continue;
+    problems.push(
+      entry.isFile() && slugs.includes(slug)
+        ? `${legacyCsvPath(slug)} is the old single-file layout; ${surahDir(slug)}/NNN.csv replaces it`
+        : `data/${entry.name} is not a <slug>/ folder or <slug>.meta.json`,
+    );
   }
+  const hasSurahDir = (slug) =>
+    entries.some((entry) => entry.isDirectory() && entry.name === slug);
   for (const slug of slugs)
-    if (!existsSync(join(rootDir, csvPath(slug))))
-      problems.push(`${csvPath(slug)} is missing`);
+    if (!hasSurahDir(slug)) problems.push(`${surahDir(slug)}/ is missing`);
   if (slugs.length === 0) problems.push("no data/<slug>.meta.json found");
   const changelog = existsSync(join(rootDir, "CHANGELOG.md"))
     ? readFileSync(join(rootDir, "CHANGELOG.md"), "utf8")
@@ -355,7 +411,7 @@ export async function verifyRepository(
   const converted =
     slugs.length > 0 ? await runConverter(rootDir, slugs, problems) : null;
   for (const slug of slugs) {
-    if (!existsSync(join(rootDir, csvPath(slug)))) continue;
+    if (!hasSurahDir(slug)) continue;
     problems.push(
       ...verifySource(
         rootDir,
@@ -406,9 +462,12 @@ if (
     options: {
       db: { type: "string" },
       overrides: { type: "string", default: OVERRIDES_FILE },
+      release: { type: "string" },
       "test-expected-counts": { type: "string" },
     },
   });
+  const release = values.release;
+  if (release) await reportStep(release, "verify", "running");
   let expected = EXPECTED_COUNTS;
   if (values["test-expected-counts"] !== undefined) {
     const [surahs, verses] = values["test-expected-counts"]
@@ -423,6 +482,13 @@ if (
     });
   } catch (error) {
     console.error(`verify failed: ${error.message}`);
+    if (release)
+      await reportStep(
+        release,
+        "verify",
+        "failed",
+        error.message.slice(0, 500),
+      );
     process.exit(1);
   }
   const { slugs, problems } = await verifyRepository(rootDir, {
@@ -433,7 +499,16 @@ if (
     console.error(
       `verify failed with ${problems.length} problems:\n- ${problems.join("\n- ")}`,
     );
+    if (release)
+      await reportStep(
+        release,
+        "verify",
+        "failed",
+        `${problems.length} problems: ${problems[0]}`.slice(0, 500),
+      );
     process.exit(1);
   }
   console.log(`verify ok: ${slugs.join(", ")}`);
+  if (release)
+    await reportStep(release, "verify", "done", `ok: ${slugs.join(", ")}`);
 }
