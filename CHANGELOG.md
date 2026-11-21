@@ -1,3 +1,80 @@
+# [1.27.0](https://github.com/quran-th/quran-api/compare/v1.26.1...v1.27.0) (2026-11-19)
+
+### Features
+
+* cache public reader responses at the edge under a content version ([4fb9880](https://github.com/quran-th/quran-api/commit/4fb98803e602bdd2b6135fc562629514db76e994))
+
+## [1.26.1](https://github.com/quran-th/quran-api/compare/v1.26.0...v1.26.1) (2026-11-19)
+
+### Bug Fixes
+
+* query by-keys translations per surah so D1 uses the full verse index ([1a8dc61](https://github.com/quran-th/quran-api/commit/1a8dc6188181c4bc33cabd43d99210ecfb3af34d))
+
+# [1.26.0](https://github.com/quran-th/quran-api/compare/v1.25.0...v1.26.0) (2026-11-18)
+
+### Features
+
+* internal routes to list and resolve public translation reports for contribute ([55e2f03](https://github.com/quran-th/quran-api/commit/55e2f033122fae06a3712aa2d7cceff5268c7530))
+
+# [1.25.0](https://github.com/quran-th/quran-api/compare/v1.24.0...v1.25.0) (2026-11-17)
+
+### Features
+
+* internal changelog summary endpoint for the release index, internal route hardening, dependency upgrade ([0a0b62b](https://github.com/quran-th/quran-api/commit/0a0b62bc54a2b6331d42ef002f948774fa7ae6ca))
+
+# [1.24.0](https://github.com/quran-th/quran-api/compare/v1.23.0...v1.24.0) (2026-11-17)
+
+### Bug Fixes
+
+* pronounce ฮะรอม and หะรอม as หะหร่อม in Thai translation audio ([775fe59](https://github.com/quran-th/quran-api/commit/775fe59ee4bbcaa7e2b4d086694d4b6a27abbc60))
+* stop returning the voice provider, model and voiceId in translation audio ([1fb0ddc](https://github.com/quran-th/quran-api/commit/1fb0ddcc2d107c9545b6472b1f7d835e3412ab5b))
+
+### Features
+
+* tag Thai translation audio with the quran-database release it was generated from ([3ec7e42](https://github.com/quran-th/quran-api/commit/3ec7e428d7021061db0aa33104531000525026d4))
+
+# [1.23.0](https://github.com/quran-th/quran-api/compare/v1.22.1...v1.23.0) (2026-11-16)
+
+### Bug Fixes
+
+* pronounce Salih, Thamud, Ad, Shawwal and a few more words correctly in Thai translation audio ([91bd9e7](https://github.com/quran-th/quran-api/commit/91bd9e7119ead2a91acc827774a5119a8dd20798))
+* pronounce ญิน as Jin and กัมปนาท as กำปะนาด in Thai translation audio ([31029f9](https://github.com/quran-th/quran-api/commit/31029f9c568ee82e4cf7207363ed1fc2f85e70d1))
+* restore missing เขา in 67:12, 68:25, 7:38 and 76:17 translations ([8b81b77](https://github.com/quran-th/quran-api/commit/8b81b77d173de3dd134d4ecc428c51994b3eece2))
+* stop overriding ญิน as Jin in Thai translation audio ([835c495](https://github.com/quran-th/quran-api/commit/835c49550fe7aa2a12f7db4dbb7110d09928c896))
+
+### Features
+
+* return each reciter's rewayah from /reciters ([76531d8](https://github.com/quran-th/quran-api/commit/76531d8cd9014bca10b16ffcdf865569c56f0bf3))
+* tag Thai translation audio with title, album, credit and CC BY-NC 4.0 ([b597e5a](https://github.com/quran-th/quran-api/commit/b597e5a5cbe2134fbee8ec2fd89c98681755c375))
+
+## [1.22.1](https://github.com/quran-th/quran-api/compare/v1.22.0...v1.22.1) (2026-11-16)
+
+### Bug Fixes
+
+* pronounce Salih and Thamud in Arabic and ʿĀd as อ๊าด in Thai translation audio ([f0c2d1a](https://github.com/quran-th/quran-api/commit/f0c2d1af7e7519ee6e44e02c400799a9218dd2ea))
+
+# [1.22.0](https://github.com/quran-th/quran-api/compare/v1.21.0...v1.22.0) (2026-11-14)
+
+
+### Features
+
+* add internal endpoint to set a contributor's password ([1932971](https://github.com/quran-th/quran-api/commit/19329715a642a7d8589be2f66ffe6175328c203b))
+
+# [1.21.0](https://github.com/quran-th/quran-api/compare/v1.20.1...v1.21.0) (2026-11-13)
+
+
+### Bug Fixes
+
+* pronounce แก่นบี as แก่นะบี in Thai translation audio ([418e533](https://github.com/quran-th/quran-api/commit/418e53357fc1c73647fb3cbab0d4ac72dfa904ce))
+* pronounce แก่นบี as แก่นะบี in Thai translation audio ([#17](https://github.com/quran-th/quran-api/issues/17)) ([9c4cae3](https://github.com/quran-th/quran-api/commit/9c4cae3650195329c9c98d35d0b4d8de5b7fa710))
+* proofread Thai Mukhtasar text in Al-Kahf and Juz 30 ([#18](https://github.com/quran-th/quran-api/issues/18)) ([2e41b58](https://github.com/quran-th/quran-api/commit/2e41b582207d74d03356fd956aebbf41f45f71fc))
+
+
+### Features
+
+* recheck translation audio timing against the local build in verify.mjs ([4ab0d9d](https://github.com/quran-th/quran-api/commit/4ab0d9d28393b4eed38d11ad493b23acbf4b8b19))
+* split long Thai translation audio into per-ayah files ([#19](https://github.com/quran-th/quran-api/issues/19)) ([93273d1](https://github.com/quran-th/quran-api/commit/93273d13654ef0196f535e8b96c45a65189cfc61))
+
 ## [1.20.1](https://github.com/quran-th/quran-api/compare/v1.20.0...v1.20.1) (2026-11-08)
 
 

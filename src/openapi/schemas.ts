@@ -540,19 +540,36 @@ export const TranslationAudioSchema = z
   .object({
     set: z.string().openapi({ example: "placeholder-kanya" }),
     chapter: z.number(),
-    audioUrl: z.string().url(),
+    audioUrl: z.string().url().optional().openapi({
+      deprecated: true,
+      description:
+        "Deprecated: whole-surah file, only while one is published. Use parts.",
+    }),
     durationMs: z.number(),
     ayahs: z.array(
       z.object({
         ayah: z.number(),
-        startMs: z.number(),
+        startMs: z
+          .number()
+          .openapi({ description: "Offset on the surah's whole timeline" }),
         endMs: z.number(),
+        part: z.number().openapi({ description: "Index into parts" }),
       }),
     ),
-    voice: z.object({
-      provider: z.string(),
-      model: z.string(),
-      voiceId: z.string(),
-    }),
+    parts: z
+      .array(
+        z.object({
+          index: z.number(),
+          audioUrl: z.string().url(),
+          startMs: z.number().openapi({
+            description:
+              "Part start on the surah timeline; offset in this file = ayah.startMs - startMs",
+          }),
+          durationMs: z.number(),
+          firstAyah: z.number(),
+          lastAyah: z.number(),
+        }),
+      )
+      .min(1),
   })
   .openapi("TranslationAudio");
