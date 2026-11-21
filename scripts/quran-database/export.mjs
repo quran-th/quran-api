@@ -8,7 +8,12 @@ import {
   loadFixture,
 } from "./lib/fetch.mjs";
 import { ExportError, buildRelease, writeRelease } from "./lib/export.mjs";
-import { getRelease, putVerses, reportStep } from "./lib/releaseIndex.mjs";
+import {
+  getRelease,
+  getReleaseTags,
+  putVerses,
+  reportStep,
+} from "./lib/releaseIndex.mjs";
 import { releaseVerses } from "./lib/releaseVerses.mjs";
 import { EXPECTED_COUNTS, testExpectedCounts } from "./lib/validate.mjs";
 
@@ -190,6 +195,17 @@ async function main() {
       input = { sources, surahsBySource };
     }
 
+    let tagGroups = [];
+    if (values.release) {
+      try {
+        tagGroups = (await getReleaseTags(values.release)).tags ?? [];
+      } catch (error) {
+        console.warn(
+          `warning: could not fetch tagged decisions, rendering release notes without them: ${error.message}`,
+        );
+      }
+    }
+
     const { files, reports } = buildRelease({
       rootDir,
       version: values.version,
@@ -198,6 +214,7 @@ async function main() {
       allowEmpty: values["allow-empty"],
       allowFootnoteMismatch: values["allow-footnote-mismatch"],
       overridesFile: resolve(values.overrides),
+      tagGroups,
       ...input,
     });
     writeRelease(rootDir, files);

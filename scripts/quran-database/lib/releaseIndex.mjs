@@ -81,6 +81,10 @@ const versionPath = (version) => `/api/releases/${encodeURIComponent(version)}`;
 export const getRelease = (version, options) =>
   request("GET", versionPath(version), undefined, options);
 
+/** @returns {Promise<{ tags: object[] }>} proofing decisions grouped by tag */
+export const getReleaseTags = (version, options) =>
+  request("GET", `${versionPath(version)}/tags`, undefined, options);
+
 export const putStep = (version, step, status, detail, options) =>
   request(
     "PUT",

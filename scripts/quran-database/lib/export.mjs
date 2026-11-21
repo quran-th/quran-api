@@ -164,6 +164,7 @@ export function buildRelease({
   allowFootnoteMismatch = false,
   overridesFile = null,
   runtime = process.versions,
+  tagGroups = [],
 }) {
   if (!parseVersion(version))
     throw new ExportError([
@@ -284,6 +285,7 @@ export function buildRelease({
     version,
     entries,
     runtime,
+    tagGroups,
   );
   const changelogPath = join(rootDir, "CHANGELOG.md");
   const changelog = existsSync(changelogPath) ? readText(changelogPath) : "";

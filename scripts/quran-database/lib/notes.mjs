@@ -457,10 +457,37 @@ function renderSource({ sourceId, diff, analyses }) {
   return lines;
 }
 
+const RESOLUTION_LABELS = {
+  accept: "รับตามข้อเสนอ (accepted)",
+  propose: "ใช้ถ้อยคำของผู้ตรวจ (reviewer wording)",
+  reject: "คงข้อความเดิม (kept)",
+};
+
+function renderTagGroups(tagGroups) {
+  const lines = ["## การตัดสินใจที่ระบุไว้ (Tagged decisions)", ""];
+  for (const tag of tagGroups) {
+    lines.push(`### ${display(tag.name)}`, "");
+    if (tag.description) lines.push(display(tag.description), "");
+    for (const item of tag.items) {
+      const footnote = item.footnoteNo ? ` (เชิงอรรถ ${item.footnoteNo})` : "";
+      lines.push(
+        `- **${item.surah}:${item.verse}**${footnote} [source ${item.sourceId}] — ${RESOLUTION_LABELS[item.resolution] ?? item.resolution}`,
+        `  - เดิม (old): ${display(item.oldText).trim() || "—"}`,
+      );
+      if (item.newText !== null && item.newText !== undefined)
+        lines.push(`  - ใหม่ (new): ${display(item.newText).trim() || "—"}`);
+      if (item.note) lines.push(`  - หมายเหตุ (note): ${display(item.note)}`);
+    }
+    lines.push("");
+  }
+  return lines;
+}
+
 /** releases/<version>.md; `runtime` is process.versions, recorded because token boundaries depend on ICU. */
-export function renderReleaseNotes(version, entries, runtime) {
+export function renderReleaseNotes(version, entries, runtime, tagGroups = []) {
   const lines = [`# ${version}`, ""];
   for (const entry of entries) lines.push(...renderSource(entry));
+  if (tagGroups.length) lines.push(...renderTagGroups(tagGroups));
   lines.push(
     "---",
     "",

@@ -61,7 +61,11 @@ const detail = (overrides = {}) => ({
 });
 
 /** A local stand-in for the contribute worker: records every request. */
-async function fakeContribute({ release = detail(), putStatus = 200 } = {}) {
+async function fakeContribute({
+  release = detail(),
+  putStatus = 200,
+  tagGroups = [],
+} = {}) {
   const requests = [];
   const server = createServer((req, res) => {
     let body = "";
@@ -74,6 +78,10 @@ async function fakeContribute({ release = detail(), putStatus = 200 } = {}) {
         body: body ? JSON.parse(body) : null,
       });
       res.setHeader("Content-Type", "application/json");
+      if (req.method === "GET" && req.url.endsWith("/tags")) {
+        res.end(JSON.stringify({ success: true, data: { tags: tagGroups } }));
+        return;
+      }
       if (req.method === "GET") {
         const allowed = req.headers.authorization === "Bearer jwt";
         res.statusCode = allowed ? 200 : 403;
@@ -193,6 +201,7 @@ test("export --release reports the step running then done and sends the changed 
     [
       "GET /api/releases/2026.11.16",
       "PUT /api/releases/2026.11.16/steps/export",
+      "GET /api/releases/2026.11.16/tags",
       "PUT /api/releases/2026.11.16/verses",
       "PUT /api/releases/2026.11.16/steps/export",
     ],

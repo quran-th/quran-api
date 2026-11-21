@@ -111,6 +111,12 @@ nothing calls the network beyond the API.
 Operators must never hold `INTERNAL_KEY`, and the tooling never sends it. Redirects from contribute are
 treated as errors and never followed.
 
+With `--release`, the release notes also get a "Tagged decisions" section: the proofing items that
+reviewers tagged in the contribute proofing tool (for example "not following the book"), grouped by tag
+with the old text, the new text (when one applies) and the reviewer's note. It is read from
+`GET /api/releases/<version>/tags` with the same `CONTRIBUTE_TOKEN`; if that fetch fails the export prints a
+warning and writes the notes without the section.
+
 Rollout: set the new secret on the contribute worker with `wrangler secret put RELEASE_KEY` (a fresh random
 value of 32+ bytes, never a reuse of `INTERNAL_KEY`) and export the same value as `RELEASE_KEY` in the shell
 that runs the CLI.
